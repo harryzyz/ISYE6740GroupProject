@@ -1,0 +1,287 @@
+---
+title: "Final Report"
+author: "Team 1"
+date: "July 24, 2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+header-includes:  
+- \usepackage{float}
+---
+```{r echo=FALSE,warning=FALSE}
+ library(knitr)
+  opts_chunk$set(fig.path='figure/graphics-', 
+                 cache.path='cache/graphics-', 
+                 fig.align='center',
+                 external=TRUE,
+                 echo=TRUE,
+                 warning=FALSE,
+                 fig.pos='H'
+                )
+```
+
+## Team Members
+Yizhi Zhang: harryzyz, Dawn Shi: dawndriver, Christian King: 42ck2009, Madison Smith: smithmn918
+
+## Background Information
+Sales forecasting is a critical element of business planning. Companies invest considerable funds to obtain more precise predictions, as inaccurate predictions could lead to loss of customers, loss of revenue, or even failure of the business. Recently, the retail giant Target has faced the dilemma of profit hit and downgraded stock; partially due to overstocking and increasing operation costs based on inaccurate forecasting (Market Watch, 2022).
+
+Accurately predicting future sales is perhaps the most difficult part of the revenue forecasting process. Accurate forecasting can improve inventory management and customer experience, potentially leading to an increased the market share. Companies utilize different models to predict future sales, plan for stocking, and perform logistic analyses. The most common models used on the market are Gut-Feel Forecasting, Almanac Forecasting Method, Funnel Forecasting, Portfolio Forecasting, Multivariate Regression Analysis, and Machine Learning/AI. Companies select the model that best fits the business depending on market scale and forecasting budget. Among these methods, Multivariate Regression Analysis and Machine Learning/AI are the two methods that are adopted by most of the big companies. Machine Learning/AI is the most sophisticated method, and not all companies can afford it. Multivariate Regression Analysis is comparable, but more cost-efficient and affordable (People AI, 2022).
+
+There are three common forecasting traps (Score, 2022):
+
+* Lack of data points: We avoided this trap by utilizing historical Walmart sales data, which included sufficient data points.
+* Over-simplification: We avoided this trap by plotting and identifying dominant variables, as well as creating dummy variables and interaction terms to avoid model over-simplification. 
+* Not-based-in-reality: To ensure fairness of the model, data from different states and stores were evaluated together to avoid cherry-picking data.
+
+## Problem Statement
+
+The purpose of the project was to determine whether a multivariate linear regression model can be used to accurately forecast future Walmart sales in terms of revenue. To do so, our group utilized historical data obtained through Kaggle and other reliable sources (e.g., localized gas prices and/or Amazon stock prices), as well as methodologies learned in MGT 6203. Our group trained several models with various log transformations on the numeric variables. The models were validated on a hold-out sample (30% of the original training dataset) and a final model was selected. Final model performance was assessed on an out-of-time sample of Walmart sales obtained from the same Kaggle competition using adjusted r-squared and mean absolute percent error (MAPE) methods. Past research (Seaman, 2022; People AI, 2022) was studied and referenced along with materials from MGT 6203. 
+
+
+## Initial Hypotheses
+
+The initial hypotheses included:
+
+* Future weekly revenue for individual stores can be predicted using specific input variables.
+* Promotions will significantly impact Walmart revenue because consumers may be more inclined to purchase products when a promotion is available.
+* Store ID will significantly impact Walmart revenue because store ID would likely correlate to socioeconomic features such as median household income in the surrounding areas. Walmart revenue may decrease in more affluent areas as consumers shop at more expensive stores.
+* Inflation will significantly impact Walmart revenue. Consumers in lower-income areas may reduce spending due to inflation; however, consumers in more affluent areas may redirect their spending to Walmart to adjust for inflation.
+* Walmart revenue may be correlated with Amazon stock price because offline retailer sales may be impacted by growing online competitors, such as Amazon.
+
+Our group utilized the following simplifications/assumptions to complete this project:
+
+* Revenue was aggregated by store ID (with ten store locations).
+* Revenue was aggregated by week (this is consistent with how prices changes occur within the dataset).
+* Snap sales were not utilized.
+
+## Data Summary
+
+The data consisted of hierarchical sales data from 10 Walmart stores located in three US States (California, Texas, and Wisconsin), as displayed in Figure 1. Sales data was provided at the item, department, category, and store level. The data included the following key information:
+ 
+* Time series data: Daily unit sales of 3,049 items classified into 7 product departments (Foods 1 – 3, Hobbies 1 – 2, and Household 1 – 2) and 3 categories (Foods, Hobbies, and Household)
+* Explanatory variables: Sales price, Day of the week, Month of the year, Year, Week number, Special event name, Special event type, State ID, Store ID, Department, Item ID
+
+The data was pulled from 1/29/2011 to 5/22/2016 and daily sales were predicted for the following 28 days – 5/23/2016 to 6/19/2016.  Our group used a few of the explanatory variables outlined above to estimate sales in terms of revenue for retail goods sold in the United States between 5/23/2016 and 6/19/2016. Our group did not utilize the time series data to ensure that we could appropriately use the tools covered in MGT 6203, specifically linear regression. Further, rather than generate sales revenue predictions for each product at each store, our group aggregated sales by week and Store ID.
+
+```{r img0-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Data Cleaning Steps'}
+knitr::include_graphics("../Visualizations/Hierarchical Data.png")
+```
+
+The datasets obtained from Kaggle include:
+
+1. calendar.csv: Contains information surrounding the dates on which products were sold.
+2. sales_train_validation.csv: Contains historical daily unit sales by product and store.
+3. sell_prices.csv: Contains information about the sale price of a product by store and date. The sales price does not change within the week, rather week to week.
+4. sales_train_evaluation.csv: Contains historical daily unit sales by product and store, including 28 days for forecasting.
+
+The data can be found at the following link: https://www.kaggle.com/competitions/m5-forecasting-accuracy/data
+
+
+## Additional Data Sources
+
+Our group initially planned to use two indicator variables to forecast revenue - special events and store ID. Initially we also considered using product price to forecast revenue. However, to simplify the problem, we aggregated the data to obtain weekly revenue at each store, rather than utilize weekly revenue for each product at each store. In this situation, we were not able to use product price as a numerical feature.
+
+However, we realized the need for a strong numerical factor that displays a linear relationship with revenue. As a result, we collected how many distinct items were on the shelf for sale each week at each store from sell_prices.csv. We also calculated the average change in product price by Store ID and week. Moreover, we found two additional data sources to consider - localized gas prices and Amazon stock price. We found strong relationships between these additional data sources and weekly Walmart revenue, as displayed in Figure 2 and Figure 3.
+
+```{r img2-with-knitr, echo=FALSE, fig.align='center', out.width='50%', fig.cap='Localized Gas Price vs Walmart Revenue'}
+knitr::include_graphics("../Visualizations/localgas.png")
+```
+```{r img3-with-knitr, echo=FALSE, fig.align='center', out.width='50%', fig.cap='Amazon Stock Price vs Walmart Revenue'}
+knitr::include_graphics("../Visualizations/amazonstock.png")
+```
+
+
+## Feature Engineering
+Our group performed the following data transformations prior to modeling:
+
+* Transformed the event variables into four indicator variables based on event type (Cultural, Sporting, National, and Religious)
+* Calculated the average change in product price by Store ID and week (pct_change_price)
+* Calculated the number of distinct items available to purchase by Store ID and week (item_on)
+* Calculated the log of the following numeric variables:
+  * Average percent change in price (log_pct_change)
+  * Amazon stock price (log_amzn_price)
+  * Localized gas prices (log_gas_price)
+* Calculated the log of the response variable (log_revenue)
+
+## Key Variables
+
+We utilized the following explanatory variables in our models:
+
+- Event indicator variables (Cultural, Sporting, National, Religious)
+- Store ID indicator variables (store_id_CA_1 (base case), store_id_CA_2, store_id_CA_3, store_id_CA_4, store_id_TX_1, store_id_TX_ 2, store_id_TX_3, store_id_WI_1, store_id_WI_2, store_id_WI_3)
+- Average change in product price (pct_change_price), or the log transformation (log_pct_change)
+- Amazon stock price (amzn_price), or the log transformation (log_amzn_price)
+- Localized gas prices(gas_price), or the log transformation (log_gas_price)
+- Number of distinct items available for purchase (item_on)
+
+Weekly revenue by Store ID (weekly_revenue), or the log transformation (log_weekly_revenue), was utilized as the response variable in our models.
+
+## Data Cleaning
+
+Our team split the data cleaning process into the following four steps, as displayed in Figure 4:
+
+1. Merging calendar.csv and sales_train_evaluation.csv on week ID. Creating a field for week (1-278).
+2. Merging calendar.csv and sell_prices.csv on store ID, item ID, and week ID. Creating a field for week (1-278).
+3. Merging the output from Task 1 and Task 2 based on store ID, item ID, and week ID. Calculating the following variables: revenue based on units sold and price, percent change in price week over week, and log of percent change in price week over week. Aggregating the data at the store level by week.
+4. Identifying and merging potential numerical factors to Task 3 - including localized gas prices and Amazon stock price. Creating a variable for the number of distinct items on the shelf at each store by week.
+
+
+```{r img-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Data Cleaning Steps'}
+knitr::include_graphics("../Visualizations/DataCleaning.png")
+```
+
+Our group experienced several unexpected challenges in the data cleaning process:
+
+1. Missing Data: We discovered that sales data was not available for all products in all weeks. As a result, we had to be mindful in our merging process to ensure that all data was appropriately included (we utilized a left join to merge the limited sell_prices.csv data on to the complete sales_train_validation.csv data).
+2. Outliers: We discovered that potential outliers existed in the data. For example, the price of one product was consistently \$8.98. However, the product price was listed as \$0.01 for two weeks. We utilized Cook's Distance to identify outliers in our modeling process.
+3. Lack of Strong Numerical Explanatory Variables: We discovered that we had not initially planned to use a strong numerical variable in our aggregated dataset. As a result, we considered additional data sources, including gas price by area and Amazon stock prices. We also calculated the number of items available for purchase and the average change in price by Store ID and week.
+4. Highly Correlated Variables: We determined that several numeric variables were highly correlated. As a result, we calculated Variance Inflation Factors (VIF) after developing our initial model.
+
+## Modeling Methodology
+
+Our group made the following decisions regarding model setup:
+
+* The purpose of our project was predictive analytics, specifically forecasting future revenue at Walmart stores.
+* The response variable was sales in terms of weekly revenue.
+* The independent variables included week ID, event indicator variables, store ID indicator variables, average change in product price, Amazon stock price, average gas price by state, and the number of distinct items available for purchase.
+
+We also made the following decisions regarding data wrangling/modeling:
+
+* Sales data were aggregated by week at the store level
+* Dummy variables were created for four different types of events (National, Sporting, Cultural, Religious) and nine different store locations (CA 2-4, TX 1-3, and WI 1-3).
+* Revenue was calculated based on unit sales and product price
+* Multivariate Linear Regression (MLR) was selected as the modeling methodology.
+
+## Modeling Validation and Selection
+
+From data exploration, we have noticed that there is strong positive correlation between wm_yr_wk and item_on. There is strong negative correlation between gas_price and amzn_price. However, correlation is not necessary nor sufficient condition for multicollinearity (Alin, 2010). To find out which variable to keep, we performed a VIF investigation.
+
+Firstly, we built our initial model with all available independent variables. After computing the VIF for each variable, we found that there is multicollinearity among variables as shown in Figure 5. 
+```{r img7-with-knitr, echo=FALSE, fig.align='center', out.width='80%', fig.cap='VIF Initial Model'}
+knitr::include_graphics("../Visualizations/VIF_initial_model.png")
+```
+In order to prevent multicollinearity, we removed wm_yr_wk and and all log forms of inputs then rebuilt the model. The VIF of each variable in the second model is less than 5, as shown in Figure 6, meaning that there is small possibility that our model will encounter multicollinearity. It is interesting that in our case, one pair of strong correlation lead to multicollinearity (wm_yr_wk vs item_on) and other pair did not (gas_price vs amzn_price).
+
+```{r img8-with-knitr, echo=FALSE, fig.align='center', out.width='80%', fig.cap='VIF Second Model'}
+knitr::include_graphics("../Visualizations/VIF_second_model.png")
+```
+
+In order to fine tune the model, gain a stronger linear relationship, and make the variance more normal, we considered using log-linear, linear-log, and log-log models to compare the performance. We focused on the numerical variables: weekly_revenue as output, gas_price, amzn_price, and pct_change_price as input. We created 16 different models based on all permutations between the linear and log forms of those four variables (2^4=16). We built each model with the same training set, tested for outliers using Cook's distance (returning no outlier), computed VIF for each model, and continued digging deeper with interaction terms.
+
+We learned that interaction terms are used when one factor has a statistically significant interaction with other factors to influence the outcome (Choueiry, 2022). In our case, the event may influence pct_change_price due to promotions. So we included an interaction term between the two. We also learned that when one factor may have a different effect on the other factor's subgroup, the interaction term will be helpful. There is no clear evidence showing our case fits this scenario. After adding the interaction terms, we found out that zero out of the four event * pct_change_price terms had statistically significant p-value. Moreover, if we combine them together as one event indicator, the Estimate, Std. Error, t value, and Pr(>|t|) were all NA. We concluded without rigorous proof that it is because there are infinite number of solutions for the OLS in the model due to too many zero values in the event column. Eventually, we decided to abandon interaction terms.
+
+It is worth mentioning that we tried two separate train validation split methods. For the first method, we simply randomly split the data into 70/30 parts. For the second method, we used a stratified split to make sure each store received the same portion of training and testing data. After testing, the two methods provided almost the same results. This makes sense in the way that our original data contains an equal number of inputs from each store. Thus a genuine random split will provide almost the same random effect as a stratified split according to store_id. At last, we chose the first method for simplicity.
+
+After all models were built, we made predictions for the validation set, computed and recorded the adjusted R squared, Mean Absolute Error (MAE), Mean Average Percentage Error (MAPE), and Root Mean Square Error (RMSE) of each model. The results are displayed in Figure 7.
+```{r img9-with-knitr, echo=FALSE, fig.align='center', out.width='80%', fig.cap='Validation Summary'}
+knitr::include_graphics("../Visualizations/validation_results.png")
+```
+The mean absolute error for all models is about 2%. This shows that our models are unbiased. Regarding the MAPE, it is shown that the worst model only under-performed by 3% comparing with the average performance. Also, the best model only out-performed the average by 3%. This fact shows that introducing the log model does not significantly improve our model. After filtering out models with multicolinearity problems per the VIF method, and comparing adjusted R squared and MAPE results, we chose the linear-linear model as our best candidate. Even though its results were not the best, it was the only one where all results were among the top choices. 
+
+To push further, we tried Principal Component Analysis (PCA) to seek possibilities of improvement. The results showed that with 17 independent variables in the model, the proportion of variance is flat, as shown in Figure 8.
+```{r img10-with-knitr, echo=FALSE, fig.align='center', out.width='80%', fig.cap='Principal Components'}
+knitr::include_graphics("../Visualizations/PCA.png")
+```
+It shows the top 14 components can explain 90% of the variance. We have tried two different PCA models with 2 and 14 components respectively. In both cases, the error estimates were higher and Adj. R squared were lower than our best candidate. We concluded that PCA will not be helpful in our case.
+
+As a result, the linear-linear model remained as our best candidate. We moved on to the evaluation stage with this model.  
+
+## Final Model Evaluation
+
+After selecting the final model, we retrained the selected model with the entire training dataset rather than the 70% training split. The model summary is displayed in Figure 9. The adjusted r-squared value for our final model was 0.862. In terms of weekly revenue by store ID, CA 3 performed the best and TX 2 performed the worst. Interestingly, the sign on the coefficient for National events is negative; meaning that, on average, the revenue for a week with a National event is 2,369 dollars lower than the revenue for a week with no event.
+
+```{r img101-with-knitr, echo=FALSE, fig.align='center', out.width='40%', fig.cap='Final Model Summary'}
+knitr::include_graphics("../Visualizations/FinalModelSummary.png")
+```
+
+We compared the final model trained on the entire training dataset to the final model trained on 70% of the training dataset. We noted that:
+
+* Variable significance did not change, the following variables were significant in both models: the indicator variables for Events, the indicator variables for store ID, Amazon stock price, and item_on, as well as the intercept.
+* The sign on each coefficient remained the same, other than the sign on the coefficient for gas prices.
+* The magnitude of each coefficient remained similar, other than the magnitude of the coefficient for gas price.
+* The adjusted r-squared values were similar for both models. Full training dataset is 0.862 while 70% training dataset is 0.8565.
+
+After training the model on the full training dataset, we also reviewed the final model plots as displayed in Figure 10 to ensure appropriateness of the multivariate linear regression technique. Our team noted nonlinearity shown in the Residual vs Fitted plot and the Normal Q-Q plot. The points are more concentrated for fitted values less than 80,000, which potentially violates the assumption that error terms are independent and identically distributed. The points above the second quantile do not lie on the straight diagonal line, which potentially violates the assumption that errors are normally distributed. We also noted that there are no outliers, based on Cook’s Distance.
+
+```{r img6-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Actual Weekly Revenue vs. Predicted Weekly Revenue by Store ID and Week'}
+knitr::include_graphics("../Visualizations/ModelPlots.png")
+```
+
+The coefficients for our independent variables are easy to interpret since final model is linear-linear. Numeric variables can be interpreted in this way: The coefficient for Amazon stock price is 347.2; therefore, as Amazon stock price increases by \$1, weekly revenue increases by \$347.2, on average and holding all else constant. Further, factor variables can be interpreted in this way: The coefficient for store_id_CA_2 is -14,830; therefore, the weekly revenue for the second store in California is $14,830 less than the weekly revenue for the base case store (the first store in California), on average and holding all else constant. The coefficient on the intercept is not meaningful in this problem.
+
+
+Then we evaluated the final model on our out-of-time dataset. Our out-of-time dataset is comprised of four additional weeks of Walmart revenue data from Kaggle. The training dataset included data from 1/29/2011 to 5/22/2016. The out-of-time dataset included data from 5/23/2016 to 6/19/2016. 
+
+The final model resulted in a mean absolute percent error (MAPE) value of 11.01% on the training dataset and a MAPE value of 49.25% on the evaluation dataset. We reviewed the MAPE value by week, as displayed in Table 1, to determine why MAPE drastically increased. We discovered that model performance on the evaluation dataset aligned with model performance on the training dataset in the first three weeks; however, the model performed poorly in the fourth week.
+
+The actual versus predicted revenue values by Store ID and week are also displayed in Figure 11. Again, it is apparent that the predictions in the fourth week (6/13 - 6/19) are the farthest from the actual revenue values. Additionally, Figure 11 shows that the model predicts weekly revenue very well for some stores (CA_4, TX_1, TX_2, WI_3), moderately well for some stores (CA_3, TX_3, WI_1), and not as well for some stores (CA_2, WI_2).
+
+```{r table, echo = FALSE}
+df <- data.frame(Week = c("5/23 - 5/29", "5/30 - 6/5", "6/6 - 6/12", "6/13 - 6/19"), 
+                 Error = c("11.70%", "11.04%", "11.56%", "162.71%"))
+knitr::kable(df, caption = "Prediction Error by Week")
+```
+```{r img4-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Actual Weekly Revenue vs. Predicted Weekly Revenue by Store ID and Week'}
+knitr::include_graphics("../Visualizations/Actual_vs_Predicted2.png")
+```
+
+To determine why the model did not perform as well in the final prediction week, our group plotted the various numeric variables by week. We concluded that most numeric variables were fairly consistent over the four week period, although Amazon stock price generally increased week-over-week in the evaluation period. We also determined that the response variable (weekly revenue) was not consistent in the fourth week, as displayed in Figure 12. Weekly revenue decreased drastically for all ten stores in the fourth prediction week (6/13 - 6/19).
+
+```{r img5-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Actual Weekly Revenue vs. Predicted Weekly Revenue by Store ID and Week'}
+knitr::include_graphics("../Visualizations/WeeklyRevenueChange.png")
+```
+
+The final model resulted in a MAPE of 11% on the training data and 49% on the testing data. However, the model performed well on the first three weeks in the testing data, with a MAPE of 11%. The model performed poorly on the fourth week in the testing data, with a MAPE of 162%. Good model performance on the first three weeks followed by large error on the last week may indicate abnormality in the data. This abnormality could be error in the data or an event that is not captured by the predictors in our model. Additional variables may be necessary to explain sudden changes in the response variable. However, modeling abnormal events can be difficult.
+
+## Overall Conclusions and Key Takeaways
+
+Our overall conclusions and key takeaways include:
+
+* The final model had an adjusted r-squared of 0.862, indicating a good linear relationship explaining most of the variability observed in the target variable, weekly revenue.
+* Using the final model to predict weekly revenue of the 274 weeks of training data resulted in a mean error percentage of 11.0%.
+* Using the final model to predict weekly revenue of the 4 weeks of evaluation data resulted in a mean error percentage of 49.2%.
+* The model performed well on the first three weeks of evaluation data with 11% error. 
+* The last week of evaluation produces an extremely large error of 162%.
+* Good model performance on the first three weeks followed by large error on the last week may indicate abnormality in the data. This abnormality could be error in the data or an event that is not captured by the predictors in our model. Additional variables may be necessary to explain sudden changes in the response variable. However, modeling abnormal events can be difficult.
+* The following variables were most significant in predicting weekly revenue at Walmart retail stores: indicator variable for event, indicator variable for Store ID, Amazon stock price, and number of items available for purchase.
+
+## Further Interest
+
+Given additional time, our group may have done the following:
+
+* Worked to identify why the model performed poorly in the fourth prediction week:
+  * Insufficient explanatory variables: does our model miss any explanatory variables that could have helped predict the drastic decrease in the weekly revenue in the fourth prediction week?
+  * Causality: What may cause the drastic decrease in the target variable in the fourth prediction week?
+* PCA: Further tested the use of Principal Component Analysis to improve model accuracy.
+* Other model techniques: explored the use of modeling methodologies not discussed in MGT 6203, including Gradient Boosting Machines.
+
+
+
+
+
+
+
+## References 
+Market Watch. (2022, 6 18). Retrieved from https://www.marketwatch.com/story/target-stock-downgraded-as-multiple-analyst-groups-blame-execution-for-profit-hit-11652985474?mod=mw_quote_news_seemore&mod=article_inline&mod=article_inline
+
+People AI. (2022, 6 18). Retrieved from https://people.ai/blog/sales-forecast/#:~:text=Multivariate%20regression%
+20is%20a%20statistical%20method%20of%20sales,have%20a%20corresponding%20effect%20on%20the%
+20predicted%20output.
+
+Score. (2022, 6 18). Retrieved from https://www.score.org/resource/how-poor-forecasting-can-sabotage-your-business-plan
+
+Seaman, B. (2022, 06 19). Retrieved from https://forecasters.org/wp-content/uploads/gravity_forms/7-c6dd08fee7f0065037affb5b74fec20a/2017/08/Seaman_ISF-2017.pdf
+
+Alin, Aylin
+Multicollinearity, WIRES Computational Statistics, Volume2, Issue3, May/June 2010, Pages 370-374, Retrieved from
+https://doi.org/10.1002/wics.84
+
+Choueiry, George (2022, 07 05) Retrieved from
+https://quantifyinghealth.com/why-and-when-to-include-interactions-in-a-regression-model/
+
+
+
+

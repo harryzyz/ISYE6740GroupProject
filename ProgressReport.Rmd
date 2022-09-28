@@ -1,0 +1,659 @@
+---
+title: "Progress Report"
+author: "Team 1"
+date: "July 6, 2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+header-includes:  
+- \usepackage{float}
+---
+```{r echo=FALSE,warning=FALSE}
+ library(knitr)
+  opts_chunk$set(fig.path='figure/graphics-', 
+                 cache.path='cache/graphics-', 
+                 fig.align='center',
+                 external=TRUE,
+                 echo=TRUE,
+                 warning=FALSE,
+                 fig.pos='H'
+                )
+```
+
+## Team Members
+Yizhi Zhang: harryzyz, Dawn Shi: dawndriver, Christian King: 42ck2009, Madison Smith: smithmn918
+
+## Background Information
+Sales forecasting is a critical element of business planning. Companies invest considerable funds to get more precise prediction, as inaccurate prediction could lead to loss of customer, loss of revenue, or even failure of the business. Recently, the retail giant Target has faced the dilemma of profit hit and downgraded stock; partially due to overstocking and increasing operation costs based on inaccurate forecasting (Market Watch, 2022).
+
+Accurately predicting future sales is perhaps the most difficult part of the revenue forecasting process. Accurate forecasting can improve inventory management and customer experience, potentially leading to increased market share. Companies utilize different models to predict future sales, plan for stocking, and perform logistic analysis. The most common models used on the market are Gut-Feel Forecasting, Almanac Forecasting Method, Funnel Forecasting, Portfolio Forecasting, Multivariate Regression Analysis, and Machine Learning/AI. Companies select the model that best fits the business depending on market scale and forecasting budget. Among these methods, Multivariate Regression Analysis and Machine Learning/AI are the two methods that are adopted by most of the big companies. Machine Learning/AI is the most sophisticated method, and not all companies can afford it. Multivariate Regression Analysis is comparable, but more cost-efficient and affordable (People AI, 2022).
+
+There are three common forecasting traps (Score, 2022):
+
+* Lack of data points: We will avoid this trap by utilizing historical Walmart sales data, which includes sufficient data points.
+* Over-simplification: We will avoid this trap by plotting and identifying dominant variables, as well as creating dummy variables and interaction terms to avoid model over-simplification. 
+* Not-based-in-reality: To ensure fairness of the model, data from different states and stores will be evaluated together to avoid cherry-picking data.
+
+## Problem Statement
+
+The project will determine whether a multivariate linear regression model can be used to accurately forecast future Walmart sales in terms of revenue. To do so, our group will utilize historical data obtained through Kaggle and other reliable sources (e.g., localized gas prices and/or Amazon stock prices), as well as methodologies learned in MGT 6203. Models will be evaluated based on an out-of-time sample of Walmart sales obtained from the same Kaggle competition using ordinary least squares (OLS) and/or root mean square error (RMSE) methods. Past research (Seaman, 2022; People AI, 2022) will be studied and referenced along with materials from MGT 6203. 
+
+
+## Initial Hypotheses
+
+The initial hypotheses included:
+
+* Future weekly revenue for individual stores can be predicted using specific input variables.
+* Promotions will significantly impact Walmart revenue because consumers may be more inclined to purchase products when a promotion is available.
+* Store ID will significantly impact Walmart revenue because store ID would likely correlate to socioeconomic features such as median household income in the surrounding areas. Walmart revenue may decrease in more affluent areas as consumers shop at more expensive stores.
+* Inflation will significantly impact Walmart revenue. Consumers in lower-income areas may reduce spending due to inflation; however, consumers in more affluent areas may redirect their spending to Walmart to adjust for inflation.
+* Walmart revenue may be correlated with Amazon stock price because offline retailer sales may be impacted by growing online competitors, such as Amazon.
+
+Our group will utilize the following simplifications/assumptions to complete this project:
+
+* Revenue will be aggregated by store ID (with ten store locations).
+* Revenue will be aggregated by week (this is consistent with how prices changes occur within the dataset).
+* Snap sales will not be utilized.
+
+
+## Data Cleaning
+
+The data consists of hierarchical sales data from Walmart stores located in three US States (California, Texas, and Wisconsin). Sales data was provided at the item, department, category, and store level. The data includes the following key information: (1) time series data (daily unit sales of 3,049 items classified into 7 product departments and 3 product categories) and (2) explanatory variables (sales price, promotions, day of the week, month of the year, year, week number, special event name, special event type, state ID, store ID, department, and item ID).
+
+The data was pulled from 1/29/2011 to 5/22/2016 and daily sales are forecasted for the following 28 days – 5/23/2016 to 6/19/2016.  We plan to use several explanatory variables to estimate sales in terms of revenue for retail goods sold in the United States between 5/23/2016 and 6/19/2016. Our group will not utilize the time series data to ensure that we can appropriately use the tools covered in MGT 6203, specifically linear regression. 
+
+
+The datasets obtained from Kaggle include:
+
+1. calendar.csv: Contains information surrounding the dates on which products were sold.
+2. sales_train_validation.csv: Contains historical daily unit sales by product and store.
+3. sell_prices.csv: Contains information about the sale price of a product by store and date. The sales price does not change within the week, rather week to week.
+4. sales_train_evaluation.csv: Contains historical daily unit sales by product and store, including 28 days for forecasting.
+
+Our team split the data cleaning process into the following four steps, as displayed in Figure 1:
+
+1. Merging calendar.csv and sales_train_evaluation.csv on week ID. Creating a field for week (1-278).
+2. Merging calendar.csv and sell_prices.csv on store ID, item ID, and week ID. Creating a field for week (1-278).
+3. Merging the output from Task 1 and Task 2 based on store ID, item ID, and week ID. Calculating the following variables: revenue based on units sold and price, percent change in price week over week, and log of percent change in price week over week. Aggregating the data at the store level by week.
+4. Identifying and merging potential numerical factors to Task 3 - including localized gas prices and Amazon stock price.
+
+
+```{r img-with-knitr, echo=FALSE, fig.align='center', out.width='60%', fig.cap='Data Cleaning Steps'}
+knitr::include_graphics("../Visualizations/DataCleaning.png")
+```
+
+
+## New Data Sources
+
+Our group initially planned to  use two indicator variables to forecast revenue - special events/promotions and store ID. Initially we also considered using product price to forecast revenue. However, to simplify the problem, we decided to aggregate the data to obtain weekly revenue at each store, rather than utilize weekly revenue for each product at each store. In this situation, we are not able to use product price as a numerical feature.
+
+However, we realized the need for a strong numerical factor that displays a linear relationship with revenue. As a result, we found two additional data sources to consider - localized gas prices and Amazon stock price. The relationships between these additional data sources and weekly Walmart revenue are displayed in Figure 2 and Figure 3.
+
+```{r img2-with-knitr, echo=FALSE, fig.align='center', out.width='50%', fig.cap='Localized Gas Price vs Walmart Revenue'}
+knitr::include_graphics("../Visualizations/localgas.png")
+```
+```{r img3-with-knitr, echo=FALSE, fig.align='center', out.width='50%', fig.cap='Amazon Stock Price vs Walmart Revenue'}
+knitr::include_graphics("../Visualizations/amazonstock.png")
+```
+
+Our group prepared and aggregated the data, as described above. However, we also cleaned the disaggregated dataset to test during our model development process. As such, we maintained price in the disaggregated dataset and calculated two additional variables related to price - percent change in price week over week and log of the percent change in price week over week.
+
+## Unexpected Challenges
+
+Our group experienced several unexpected challenges in the data cleaning process:
+
+1. Missing Data: We discovered that sales data was not available for all products in all weeks. As a result, we had to be mindful in our merging process to ensure that all data was appropriately included (we utilized a left join to merge the limited sell_prices.csv data on to the complete sales_train_validation.csv data ).
+2. Outliers: We discovered that outliers existed in the data. For example, the price of one product was consistently \$8.98. However, the product price was listed as \$0.01 for two weeks. To account for outliers, we plan to utilize Cook's Distance prior to developing our model.
+3. Lack of Strong Numerical Explanatory Variables: We discovered that we had not initially planned to use a strong numerical variable in our aggregated dataset. As a result, we considered additional data sources, including gas price by area and Amazon stock prices.
+
+## Approach
+
+Our group made the following decisions regarding model setup:
+
+* The purpose of our project is predictive analytics, specifically forecasting future revenue at Walmart stores.
+* The response variable is sales in terms of revenue.
+* The independent variables may include special events/promotions, sales price, and location (store ID).
+* Additional data sources, including localized gas prices and Amazon stock prices, may be utilized as independent variables.
+
+We also made the following decisions regarding data wrangling/modeling:
+
+* Sales data will be aggregated by week at the store level
+* Dummy variables were created for four different types of events (National, Sporting, Cultural, Religious) and ten different store locations (CA 1-4, TX 1-3, and WI 1-3).
+* Revenue was calculated based on unit sales and product price
+* Multivariate Linear Regression (MLR) was selected as the modeling methodology.
+
+## Initial Discoveries
+
+Our initial discoveries include:
+
+* There is a moderately strong, linear relationship between week ID and sales revenue, as displayed in Figure 4. Therefore, our team concluded that inflation occurred over the sample period (1/29/2011 to 5/22/2016). However, we noticed potential outliers based on this relationship.
+* There is a moderately strong, linear relationship between Amazon stock price and sales revenue, as displayed in Figure 3. However, we noticed potential outliers based on this relationship, as well.
+
+```{r img4-with-knitr, echo=FALSE, fig.align='center', out.width='50%', fig.cap='Week ID vs Walmart Revenue'}
+knitr::include_graphics("../Visualizations/weekID.png")
+```
+
+
+## Progress Since Proposal
+
+Since submitting the proposal, our group has completed the setup and data cleaning/modeling steps, as detailed in the Approach section. Specifically, our group has:
+
+* Identified the purpose of our project, including independent and dependent variables, as well as additional data sources (localized gas prices and Amazon stock price).
+* Merged, cleaned, and aggregated the data using packages such as dplyr, reshape2, pacman, yfR, data.table, fixest, BatchGetSymbols, and lubridate.
+* Created initial data visuals using ggplot2.
+* Selected a modeling approach.
+
+## Remaining Analysis
+
+Our group still needs to complete the following tasks:
+
+* Identify and remove outliers using Cook's Distance, as determined appropriate.
+* Develop an initial MLR model utilizing the independent variables.
+* Validate the initial model using Root Mean Squared Error of Estimation (RMSEE).
+* Refine the model and iterate through the model development process.
+* Consider reducing the dimensionality of our dataset using Principal Components Analysis (PCA).
+
+Our group is on schedule to complete the project on time. Our group will complete the tasks outlined above from July 7 to July 14. From July 15 to July 20, we will prepare and present our final report.
+
+## References 
+Market Watch. (2022, 6 18). Retrieved from https://www.marketwatch.com/story/target-stock-downgraded-as-multiple-analyst-groups-blame-execution-for-profit-hit-11652985474?mod=mw_quote_news_seemore&mod=article_inline&mod=article_inline
+
+People AI. (2022, 6 18). Retrieved from https://people.ai/blog/sales-forecast/#:~:text=Multivariate%20regression%
+20is%20a%20statistical%20method%20of%20sales,have%20a%20corresponding%20effect%20on%20the%
+20predicted%20output.
+
+Score. (2022, 6 18). Retrieved from https://www.score.org/resource/how-poor-forecasting-can-sabotage-your-business-plan
+Seaman, B. (2022, 06 19). Retrieved from https://forecasters.org/wp-content/uploads/gravity_forms/7-c6dd08fee7f0065037affb5b74fec20a/2017/08/Seaman_ISF-2017.pdf
+
+## Appendix
+### Code for Data Cleaning Step 1:
+clean environment space
+```{r, results = 'hide'}
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+intall and loading library
+```{r, results = 'hide'}
+if (!require(MASS)) install.packages("MASS")
+if (!require(reshape2)) install.packages("reshape2")
+if (!require(reshape)) install.packages("reshape")
+if (!require(dplyr)) install.packages("dplyr")
+library(MASS) 
+library(reshape2) 
+library(reshape) 
+library(dplyr)
+```
+
+prepare calendar datafile
+```{r, results = 'hide'}
+calendar <- read.csv("../Data/calendar.csv")
+calendar <- calendar[1:1941,c(2,7:11)]
+head(calendar)
+dim(calendar)
+```
+
+find week_id, the week_id is coresponding with wm_yr_wk
+```{r, results = 'hide'}
+calendar$d_id <- as.numeric(regmatches(calendar$d,regexpr("[[:digit:]]+",calendar$d)))
+calendar$week_id <- ceiling(calendar$d_id / 7) 
+```
+
+create dummy variables for events
+```{r, results = 'hide'}
+calendar$Sporting <- ifelse(calendar$event_type_1 == "Sporting" | calendar$event_type_2 == "Sporting", 1,0)
+calendar$Cultural <- ifelse(calendar$event_type_1 == "Cultural" | calendar$event_type_2 == "Cultural", 1,0)
+calendar$Religious <- ifelse(calendar$event_type_1 == "Religious" | calendar$event_type_2 == "Religious", 1,0)
+calendar$National <- ifelse(calendar$event_type_1 == "National" | calendar$event_type_2 == "National", 1,0)
+```
+
+group the weekly data
+```{r, results = 'hide'}
+calendar.GB <- calendar %>% group_by(wm_yr_wk,week_id) %>% summarise(Cultural=max(Cultural),Sporting=max(Sporting),Religious=max(Religious),National=max(National))
+head(calendar.GB)
+dim(calendar.GB)
+```
+
+prepare the sales datafile
+```{r, results = 'hide'}
+sales <- read.csv("../Data/sales_train_evaluation.csv")
+sales <- sales[,c(2,5,7:1947)]
+head(sales)
+dim(sales)
+```
+
+melt to transpose day as rows instead of column
+```{r, results = 'hide'}
+sales.melt <- melt(sales,id=c("item_id","store_id"))
+head(sales.melt)
+dim(sales.melt)
+```
+
+find week_id, the week_id is coresponding with wm_yr_wk 
+```{r, results = 'hide'}
+sales.melt$d_id <- as.numeric(regmatches(sales.melt$variable,regexpr("[[:digit:]]+",sales.melt$variable)))
+sales.melt$week_id <- ceiling(sales.melt$d_id / 7) 
+```
+
+leave only meaningful columns 
+```{r, results = 'hide'}
+sales.melt <- sales.melt[,c(1,2,4,6)]
+```
+
+group sales get weekly sale
+```{r, results = 'hide'}
+sales.GB <- sales.melt %>% group_by(item_id,store_id,week_id) %>% summarise(weekly_sale=sum(value))
+head(sales.GB)
+dim(sales.GB)
+```
+
+merge both sales and calender by week_id
+```{r, results = 'hide'}
+sales.combine <- merge(x = calendar.GB, y = sales.GB, all.y = TRUE)
+sales.combine <- sales.combine[,c("wm_yr_wk","week_id","store_id","item_id","Cultural","Sporting","Religious","National","weekly_sale")]
+head(sales.combine)
+dim(sales.combine)
+```
+clean datasets to speed next task
+```{r, results = 'hide'}
+rm(list= setdiff(ls(),"sales.combine"))
+gc(reset=TRUE)
+```
+output dataframe as task 1 and clean RAM
+```{r, results = 'hide'}
+write.csv(sales.combine,"../Data/task_1.csv")
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+
+### Code for Data Cleaning Step 2:
+summarizing sales for each store/item by week
+```{r, results = 'hide'}
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(reshape2)))
+suppressWarnings(suppressMessages(library(dplyr)))
+```
+
+
+using calendar to get week_id from wm_yr_wk
+```{r, results = 'hide'}
+calendar <- read.csv("../Data/calendar.csv")
+calendar <- calendar[1:1941,c(2,7)]
+# find week_id, the week_id is corresponding with wm_yr_wk
+calendar <- calendar %>%
+  mutate(day = as.numeric(gsub('d_','',d))) %>%
+  mutate(week_id = ceiling(day/7)) 
+
+calendar <- calendar[,c(1,4)] %>%
+  distinct()
+
+#head(calendar,10)
+```
+
+merge week_id from calendar onto price
+```{r, results = 'hide'}
+price <- read.csv('../Data/sell_prices.csv')
+price_week <- merge(price,calendar, by.y = "wm_yr_wk")
+price_week <- price_week[,c("wm_yr_wk","week_id","store_id","item_id","sell_price")] %>%
+  arrange(week_id,store_id,item_id)
+
+rm(calendar)
+rm(price)
+view(head(price_week,30))
+```
+
+write CSV for price by week as task 2
+```{r, results = 'hide'}
+write.csv(price_week,"../Data/task_2.csv")
+```
+
+### Code for Data Cleaning Step 3:
+Clear environment
+```{r, results = 'hide'}
+rm(list = ls(all.names = TRUE))
+gc()
+```
+
+
+Install and load packages
+```{r, results = 'hide'}
+packages <- c("dplyr", "tidyr", "reshape", "reshape2", "tidyverse", "MASS")
+
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+
+Load data files from Dawn (task_1) and Christian (task_2)
+```{r, results = 'hide'}
+calendar_sales <- read.csv("../Data/task_1.csv")[,-1]
+sales_price <- read.csv("../Data/task_2.csv")[,-1]
+```
+
+
+Left join calendar_sales and price_sales (left join to keep all rows although some prices not available)
+```{r, results = 'hide'}
+calendar_sales_price <- merge(calendar_sales, sales_price, by = c('wm_yr_wk', 'week_id', 'store_id', 'item_id'), all.x = TRUE)
+
+rm(calendar_sales)
+rm(sales_price)
+
+View(calendar_sales_price)
+dim(calendar_sales_price)
+```
+
+
+Create weekly sales revenue column by multiplying weekly_sales and sell_price
+Set weekly_revenue to 0 if sell_price is NA (corresponds to new products)
+```{r, results = 'hide'}
+calendar_sales_price <- calendar_sales_price %>% mutate_at(vars('sell_price'), ~replace_na(.,0))
+
+calendar_sales_price$weekly_revenue <-calendar_sales_price$weekly_sale * calendar_sales_price$sell_price
+
+View(calendar_sales_price)
+```
+
+
+Calculate percent change in price by store and product (store_id, item_id)
+Replace infinite values in percent change with 0 (result from divide by 0 because of new products), replace NA values in percent change with 0 (result from first occurrence of product, no lag value)
+```{r, results = 'hide'}
+calendar_sales_price2 <- calendar_sales_price %>%
+  arrange(store_id, item_id) %>%
+  group_by(store_id, item_id) %>%
+  mutate(pct_change_price = ((sell_price - lag(sell_price))/lag(sell_price) * 100)) %>%
+  ungroup
+
+calendar_sales_price2$pct_change_price <- ifelse(is.infinite(calendar_sales_price2$pct_change_price), 0, calendar_sales_price2$pct_change_price)
+
+calendar_sales_price2$pct_change_price <- ifelse(is.na(calendar_sales_price2$pct_change_price), 0, calendar_sales_price2$pct_change_price)
+
+View(calendar_sales_price2)
+dim(calendar_sales_price2)
+```
+
+
+Reorder based on previous ordering (not necessary, just wanted it to look like Dawn & Christian's data)
+```{r, results = 'hide'}
+task_3_product_level <- calendar_sales_price2 %>% arrange(wm_yr_wk, week_id, store_id, item_id)
+
+View(task_3_product_level)
+```
+
+
+Add log of pct_change_price to consider as variable
+Calculate and add min due to negative values
+```{r, results = 'hide'}
+min <- abs(min(task_3_product_level$pct_change_price) - 0.001)
+
+task_3_product_level2 <- task_3_product_level %>%
+  mutate(log_pct_change = log(pct_change_price + min))
+
+View(task_3_product_level2)
+```
+
+
+Write product-level output to CSV
+```{r, results = 'hide'}
+write.csv(task_3_product_level2, file='../Data/task_3_product_level.csv', row.names=F)
+```
+
+
+Aggregate weekly revenue data at the store level with max of indicator variables, sum of weekly revenue, and mean of pct_change_price
+```{r, results = 'hide'}
+task_3 <- task_3_product_level %>% group_by(wm_yr_wk, week_id, store_id) %>% 
+  summarize(Cultural = max(Cultural),
+            Sporting = max(Sporting),
+            National = max(National),
+            Religious = max(Religious),
+            weekly_revenue = sum(weekly_revenue),
+            pct_change_price = mean(pct_change_price))
+
+View(task_3)
+dim(task_3)
+```
+
+
+Add log of pct_change_price to consider as variable
+Calculate and add min due to negative values
+```{r, results = 'hide'}
+min <- abs(min(task_3$pct_change_price) - 0.001)
+
+task_3_2 <- task_3 %>%
+  mutate(log_pct_change = log(pct_change_price + min))
+
+View(task_3_2)
+```
+
+
+Write output to CSV
+```{r, results = 'hide'}
+write.csv(task_3_2, file='../Data/task_3.csv', row.names=F)
+```
+
+
+Clear environment
+```{r, results = 'hide'}
+rm(list = ls(all.names = TRUE))
+gc()
+```
+
+### Code for Data Cleaning Step 4:
+```{r, results = 'hide'}
+revenue.weekly <- read.csv('../Data/task_3.csv')
+head(revenue.weekly)
+```
+
+We used pacman package the install and load necessary packages.
+
+```{r, results = 'hide'}
+# install.packages('pacman')
+library(pacman)
+pacman::p_load(data.table, fixest, BatchGetSymbols, ggplot2, lubridate)
+# install.packages("yfR",repos="https://ropensci.r-universe.dev")
+library(yfR)
+```
+
+Download amazon data from 2011-01-29 to 2016-06-19. The source is Yahoo! Finance.
+
+```{r, results = 'hide'}
+first.date <- '2011-01-29'
+# last.date <- Sys.Date()
+last.date <- '2016-06-19' 
+tickers <- c('AMZN')
+freq.data <- 'daily'
+```
+
+```{r, results = 'hide'}
+amazon <- yfR::yf_get(tickers = tickers, first_date = first.date, last_date = last.date, freq_data = freq.data, do_cache = FALSE, thresh_bad_data = 0, be_quiet = TRUE)
+dim(amazon)
+head(amazon)
+```
+
+Download Gas price data for three respective states. The csv files are downloaded from the data source with links below and stored in Dropbox. Since the gas prices for state of Wisconsin are not available, we will use the prices of the Midwest instead.
+
+Gas Price Data Source with share link:
+
+Texas
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_STX_DPG&f=W>
+
+<https://www.dropbox.com/s/x7mm86wzffmcmfv/Weekly_Texas.csv?dl=1>
+
+Midwest
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_R20_DPG&f=W>
+
+<https://www.dropbox.com/s/z74yg77k59fhgh2/Weekly_Midwest.csv?dl=1>
+
+California
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_SCA_DPG&f=W>
+
+<https://www.dropbox.com/s/8y7jdwx47att2wk/Weekly_California.csv?dl=1>
+
+US National
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_NUS_DPG&f=W>
+
+<https://www.dropbox.com/s/cu17eigmnbtqvfk/Weekly_US.csv?dl=1>
+
+```{r, results = 'hide'}
+gas.midwest <- read.csv('https://www.dropbox.com/s/z74yg77k59fhgh2/Weekly_Midwest.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_WI'))
+head(gas.midwest)
+```
+
+```{r, results = 'hide'}
+gas.texas <- read.csv('https://www.dropbox.com/s/x7mm86wzffmcmfv/Weekly_Texas.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_TX'))
+head(gas.texas)
+```
+
+```{r, results = 'hide'}
+gas.california <- read.csv('https://www.dropbox.com/s/8y7jdwx47att2wk/Weekly_California.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_CA'))
+head(gas.california)
+```
+
+```{r, results = 'hide'}
+calendar <- read.csv('../Data/calendar.csv')
+head(calendar)
+```
+For the stock prices, our plan is to use the mean of the adjusted price each week. In our sales dataset, the last Walmart week (11621) has only two days (2016-6-18 and 2016-6-19). They are Sat and Sun with no stock price available. We could use the average prices of that Walmart week as the input. However, the price will be mean price from 2016-6-20 to 2016-6-24. Since knowing future will affect the reliability of our model, we will instead using the price which is before and closest (2016-6-17) to the last Walmart week as the input.
+
+```{r, results = 'hide'}
+amazon.prices <- subset(amazon, select = c(ref_date, price_adjusted))
+amazon.prices$ref_date <- as.character(amazon.prices$ref_date)
+head(amazon.prices)
+```
+
+```{r, results = 'hide'}
+amazon.prices <- merge(subset(calendar, select = c('date','wm_yr_wk')), amazon.prices, by.x = 'date', by.y = 'ref_date', all.x = TRUE)
+amazon.prices$price_adjusted[nrow(amazon.prices)] <- amazon.prices$price_adjusted[nrow(amazon.prices)-2]
+tail(amazon.prices,10)
+```
+
+```{r, results = 'hide'}
+amazon.prices <- subset(amazon.prices, select = -c(date))
+amazon.prices <- na.omit(amazon.prices)
+head(amazon.prices)
+```
+
+```{r, results = 'hide'}
+amazon.prices <- aggregate(subset(amazon.prices, select = -c(wm_yr_wk)), by = list(wm_yr_wk = amazon.prices$wm_yr_wk), FUN = mean)
+colnames(amazon.prices) <- c('wm_yr_wk','amzn_price')
+head(amazon.prices)
+```
+
+Now move on to gas prices.
+
+```{r, results = 'hide'}
+gas.prices <- subset(calendar, select = c('date','wm_yr_wk'))
+tail(gas.prices,10)
+```
+
+Convert the format of datetime values and use date to merge weekly gas prices with calendar.
+
+Note that we are using weekly prices. For every week that the price exists, there will be only one row in that week with price available. For the rest of days, the prices will be NA. We then fill NA with 0 and aggregate prices dataframe by week and take the sum of the prices. Since there will be at most one gas price within each week in each of the three columns. The sum will represent the weekly gas prices.
+
+```{r, results = 'hide'}
+gas.prices$new_date <- strptime(gas.prices$date,'%Y-%m-%d')
+gas.prices$new_date <- format(gas.prices$new_date, '%m/%d/%Y')
+head(gas.prices)
+```
+
+```{r, results = 'hide'}
+gas.prices <- merge(gas.prices, gas.california, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- merge(gas.prices, gas.midwest, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- merge(gas.prices, gas.texas, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- subset(gas.prices, select = -c(new_date,date))
+gas.prices <- gas.prices[order(gas.prices$wm_yr_wk),]
+gas.prices[is.na(gas.prices)] <- 0
+head(gas.prices)
+```
+
+```{r, results = 'hide'}
+# ?aggregate
+gas.prices = aggregate(subset(gas.prices, select = -c(wm_yr_wk)), by = list(wm_yr_wk = gas.prices$wm_yr_wk), FUN = sum, na.action(na.pass))
+# aggregate(wm_yr_wk ~ ., data = gas.prices, FUN = sum)
+head(gas.prices)
+
+```
+
+For those rows with gas prices equal to 0, it is due to missing values from the data source. We do our best to estimate those missing values by taking the mean prices of the neighboring weeks (one week before and one week after).
+
+```{r, results = 'hide'}
+gas.prices$price_CA[gas.prices$price_CA==0] <- NA
+gas.prices$price_WI[gas.prices$price_WI==0] <- NA
+gas.prices$price_TX[gas.prices$price_TX==0] <- NA
+head(gas.prices)
+```
+
+```{r, results = 'hide'}
+library(zoo)
+gas.prices <- as.data.frame(na.approx(gas.prices))
+gas.prices$wm_yr_wk <- as.integer(gas.prices$wm_yr_wk)
+tail(gas.prices)
+```
+Similar to the stock price situation, the last week's gas prices are missing. We follow the same rule and fill them with prices from previous week.
+
+```{r, results = 'hide'}
+gas.prices[nrow(gas.prices),2:4] <- gas.prices[nrow(gas.prices)-1,2:4]
+tail(gas.prices)
+```
+
+Now merge the gas price and stock price together for future use.
+
+```{r, results = 'hide'}
+gas.stock <- merge(gas.prices, amazon.prices, by = 'wm_yr_wk')
+head(gas.stock)
+```
+
+
+
+```{r, results = 'hide'}
+library(fastDummies)
+```
+
+We create dummy variables for store_id column. There are 10 unique categorical values.
+
+```{r, results = 'hide'}
+dummy.store <- data.frame(revenue.weekly$store_id)
+colnames(dummy.store)[1] <- 'store_id'
+dummy.store <- dummy_cols(dummy.store)#[2:10]
+head(dummy.store)
+```
+
+```{r, results = 'hide'}
+revenue.weekly <- cbind(revenue.weekly, dummy.store[,2:11])
+```
+
+```{r, results = 'hide'}
+revenue.weekly <- merge(revenue.weekly, gas.stock, by = c('wm_yr_wk'), all.x = TRUE)
+```
+
+We assign gas prices of each row according to store location
+
+```{r, results = 'hide'}
+revenue.weekly$gas_price <- revenue.weekly$price_CA*(revenue.weekly$store_id_CA_1+revenue.weekly$store_id_CA_2+revenue.weekly$store_id_CA_3+revenue.weekly$store_id_CA_4) + revenue.weekly$price_WI*(revenue.weekly$store_id_WI_1+revenue.weekly$store_id_WI_2+revenue.weekly$store_id_WI_3) + revenue.weekly$price_TX*(revenue.weekly$store_id_TX_1+revenue.weekly$store_id_TX_2+revenue.weekly$store_id_TX_3)
+
+head(revenue.weekly)
+```
+
+I kept everything in the dataset. Please note that we should drop one column of store_id dummies before modeling.
+
+Write output to CSV
+```{r, results = 'hide'}
+write.csv(revenue.weekly, file='../Data/task_4.csv', row.names=F)
+```
+
+
+Clear environment
+```{r, results = 'hide'}
+rm(list = ls(all.names = TRUE))
+gc()
+```
