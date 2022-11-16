@@ -1,0 +1,116 @@
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+
+```{r}
+df <- read.csv('../../Data/task_4_2.csv')
+df <- subset(df, select = -c(wm_yr_wk, store_id,week_id, log_pct_change, store_id_CA_1, price_CA, price_WI, price_TX, log_amzn_price, log_weekly_revenue, log_gas_price))
+head(df)
+dim(df)
+```
+
+```{r}
+df_test <- read.csv('../../Data/task_5.csv')
+df_test <- subset(df_test, select = -c(wm_yr_wk, store_id,week_id, log_pct_change, store_id_CA_1, price_CA, price_WI, price_TX, log_amzn_price, log_weekly_revenue, log_gas_price))
+head(df_test)
+dim(df_test)
+```
+
+```{r}
+pca <- prcomp(df[,-c(5)],scale=TRUE)
+summary(pca)
+plot(pca, type='l')
+```
+
+```{r}
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100,1)
+barplot(pca.var.per,main="Screen Plot",xlab="Principle Component",ylab="Percent Variation")
+```
+
+
+First case with the top 13 components.
+```{r}
+df_pca <- as.data.frame(cbind(pca$x[,1:13], df[,5]))
+head(df_pca)
+```
+
+```{r}
+model_pca <- lm(V14~., data=df_pca)
+summary(model_pca)
+```
+
+```{r}
+beta <- model_pca$coefficients
+alpha <- pca$rotation[,1:13] %*% beta[2:14]
+alpha0 <- alpha/sapply(df[,-c(5)], sd)
+beta0 <- beta[1] - sum(alpha*sapply(df[,-c(5)], mean)/sapply(df[,-c(5)],sd))
+```
+
+```{r}
+alpha0
+beta0
+pred <- as.matrix(df[,-c(5)]) %*% alpha0 + beta0
+length(pred)
+error <- mean(abs(pred - df$weekly_revenue)/df$weekly_revenue)
+error
+```
+
+```{r}
+SSre <- sum((pred - df$weekly_revenue)^2)
+SSto <- sum((df$weekly_revenue-mean(df$weekly_revenue))^2)
+R2 <- 1 - SSre/SSto
+R2
+```
+
+```{r}
+pred <- as.matrix(df_test[,-c(5)]) %*% alpha0 + beta0
+length(pred)
+error <- mean(abs(pred - df_test$weekly_revenue)/df_test$weekly_revenue)
+error
+```
+
+
+Another case with only the first 2 component.
+
+```{r}
+df_pca <- as.data.frame(cbind(pca$x[,1:2], df[,5]))
+head(df_pca)
+```
+
+```{r}
+model_pca <- lm(V3~., data=df_pca)
+summary(model_pca)
+```
+
+```{r}
+beta <- model_pca$coefficients
+alpha <- pca$rotation[,1:2] %*% beta[2:3]
+alpha0 <- alpha/sapply(df[,-c(5)], sd)
+beta0 <- beta[1] - sum(alpha*sapply(df[,-c(5)], mean)/sapply(df[,-c(5)],sd))
+```
+
+```{r}
+alpha0
+beta0
+pred <- as.matrix(df[,-c(5)]) %*% alpha0 + beta0
+length(pred)
+error <- mean(abs(pred - df$weekly_revenue)/df$weekly_revenue)
+error
+```
+
+```{r}
+SSre <- sum((pred - df$weekly_revenue)^2)
+SSto <- sum((df$weekly_revenue-mean(df$weekly_revenue))^2)
+R2 <- 1 - SSre/SSto
+R2
+```
+
+```{r}
+pred <- as.matrix(df_test[,-c(5)]) %*% alpha0 + beta0
+length(pred)
+error <- mean(abs(pred - df_test$weekly_revenue)/df_test$weekly_revenue)
+error
+```

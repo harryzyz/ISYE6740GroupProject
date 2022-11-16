@@ -1,0 +1,115 @@
+```{r}
+
+library(dplyr)
+df <- read.csv('../../Data/task_4_2.csv')
+head(df)
+```
+
+
+
+
+
+```{r}
+
+```
+
+
+
+Train test split plan a
+```{r}
+set.seed(6203)
+smpl.size <- floor(0.7 * nrow(df))
+train_ind <- sample(nrow(df), size = smpl.size)
+length(train_ind)
+nrow(df) - length(train_ind)
+```
+
+Train test split plan b. It uses stratified split to make sure each store receives the same portion of training and testing data.
+```{r}
+if (!require(caret)) install.packages("caret")
+library(caret)
+set.seed(6203)
+train_ind <- createDataPartition(df$store_id, p = 0.7, list = FALSE)
+length(train_ind)
+nrow(df) - length(train_ind)
+```
+
+
+log-linear model where y = log_revenue, x1 = amazon stock price. x2 = price change.
+
+```{r}
+df_model5 <- subset(df, select = -c(week_id, store_id, log_pct_change,store_id_WI_3, price_CA, price_WI, price_TX, gas_price, log_amzn_price))
+# df_model5 <- transform(df_model5,inter=pct_change_price*(max(Cultural,Sporting,National,Religious)+1))
+df_model5 <- df_model5[train_ind,]
+df_test <- df_model5[-train_ind,]
+model5 <- lm(log_weekly_revenue~. - weekly_revenue, data = df_model5)
+summary(model5)
+```
+
+```{r}
+df_test$pred <- predict(model5, newdata = df_test, type = 'response')
+# mean((exp(df_test$pred)-exp(df_test$log_weekly_revenue))/exp(df_test$log_weekly_revenue))
+mean((exp(df_test$pred) - df_test$weekly_revenue) / df_test$weekly_revenue)
+```
+
+
+
+log-log model where y = log_revenue, x1 = log_amazon stock price. x2 = price change.
+```{r}
+df_model6 <- subset(df, select = -c(week_id, store_id, log_pct_change, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, amzn_price))
+# df_model6 <- transform(df_model6,inter=pct_change_price*max(Cultural,Sporting,National,Religious))
+df_model6 <- df_model6[train_ind,]
+df_test <- df_model6[-train_ind,]
+model6 <- lm(log_weekly_revenue~.-weekly_revenue, data = df_model6)
+summary(model6)
+```
+
+
+```{r}
+df_test$pred <- predict(model6, newdata = df_test, type = 'response')
+
+# mean((exp(df_test$pred)-exp(df_test$log_weekly_revenue))/exp(df_test$log_weekly_revenue))
+mean((exp(df_test$pred) - df_test$weekly_revenue) / df_test$weekly_revenue)
+```
+
+
+log-log model where y = log_revenue, x1 = amazon stock price. x2 = log_price change.
+```{r}
+df_model8 <- subset(df, select = -c(week_id, store_id, pct_change_price, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, log_amzn_price))
+# df_model8 <- transform(df_model8,inter=log_pct_change*max(Cultural,Sporting,National,Religious))
+df_model8 <- df_model8[train_ind,]
+df_test <- df_model8[-train_ind,]
+model8 <- lm(log_weekly_revenue~.-weekly_revenue, data = df_model8)
+summary(model8)
+# plot(model8)
+```
+
+
+```{r}
+df_test$pred <- predict(model8, newdata = df_test, type = 'response')
+# df_model7$pred <- predict(model7, newdata = df_model7, type = 'response')
+# mean((exp(df_test$pred)-exp(df_test$log_weekly_revenue))/exp(df_test$log_weekly_revenue))
+mean((exp(df_test$pred) - df_test$weekly_revenue) / df_test$weekly_revenue)
+#mean((exp(df_model7$pred) - df_model7$weekly_revenue) / df_model7$weekly_revenue)
+
+```
+
+
+log-log model where y = log_revenue, x1 = log_amazon stock price. x2 = log_price change.
+```{r}
+df_model7 <- subset(df, select = -c(week_id, store_id, pct_change_price, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, amzn_price))
+# df_model7 <- transform(df_model8,inter=log_pct_change*max(Cultural,Sporting,National,Religious))
+df_model7 <- df_model7[train_ind,]
+df_test <- df_model7[-train_ind,]
+model7 <- lm(log_weekly_revenue~.-weekly_revenue, data = df_model7)
+summary(model7)
+```
+
+```{r}
+df_test$pred <- predict(model7, newdata = df_test, type = 'response')
+# mean((exp(df_test$pred)-exp(df_test$log_weekly_revenue))/exp(df_test$log_weekly_revenue))
+mean((exp(df_test$pred) - df_test$weekly_revenue) / df_test$weekly_revenue)
+```
+
+
+Among model 5 to model 8, model 5 (log(y)~x1+x2)  and model 7 (log(y)~log(x1)+x2) provides the smallest relative error 1.29% and the highest Adj. R2 0.8374, 0.8375

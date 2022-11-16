@@ -1,0 +1,132 @@
+Clear environment
+```{r}
+rm(list = ls(all.names = TRUE))
+gc()
+```
+
+
+Install and load packages
+```{r}
+packages <- c("dplyr", "tidyr", "reshape", "reshape2", "tidyverse", "MASS")
+
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+
+Load data files from Dawn (task_1) and Christian (task_2)
+```{r}
+calendar_sales <- read.csv("../../Data/task_1.csv")[,-1]
+sales_price <- read.csv("../../Data/task_2.csv")[,-1]
+```
+
+
+Left join calendar_sales and price_sales (left join to keep all rows although some prices not available)
+```{r}
+calendar_sales_price <- merge(calendar_sales, sales_price, by = c('wm_yr_wk', 'week_id', 'store_id', 'item_id'), all.x = TRUE)
+
+rm(calendar_sales)
+rm(sales_price)
+
+View(calendar_sales_price)
+dim(calendar_sales_price)
+```
+
+
+Create weekly sales revenue column by multiplying weekly_sales and sell_price
+Set weekly_revenue to 0 if sell_price is NA (corresponds to new products)
+```{r}
+calendar_sales_price <- calendar_sales_price %>% mutate_at(vars('sell_price'), ~replace_na(.,0))
+
+calendar_sales_price$weekly_revenue <-calendar_sales_price$weekly_sale * calendar_sales_price$sell_price
+
+View(calendar_sales_price)
+```
+
+
+Calculate percent change in price by store and product (store_id, item_id)
+Replace infinite values in percent change with 0 (result from divide by 0 because of new products), replace NA values in percent change with 0 (result from first occurrence of product, no lag value)
+```{r}
+calendar_sales_price2 <- calendar_sales_price %>%
+  arrange(store_id, item_id) %>%
+  group_by(store_id, item_id) %>%
+  mutate(pct_change_price = ((sell_price - lag(sell_price))/lag(sell_price) * 100)) %>%
+  ungroup
+
+calendar_sales_price2$pct_change_price <- ifelse(is.infinite(calendar_sales_price2$pct_change_price), 0, calendar_sales_price2$pct_change_price)
+
+calendar_sales_price2$pct_change_price <- ifelse(is.na(calendar_sales_price2$pct_change_price), 0, calendar_sales_price2$pct_change_price)
+
+View(calendar_sales_price2)
+dim(calendar_sales_price2)
+```
+
+
+Reorder based on previous ordering (not necessary, just wanted it to look like Dawn & Christian's data)
+```{r}
+task_3_product_level <- calendar_sales_price2 %>% arrange(wm_yr_wk, week_id, store_id, item_id)
+
+View(task_3_product_level)
+```
+
+
+Add log of pct_change_price to consider as variable
+Calculate and add min due to negative values
+```{r}
+min <- abs(min(task_3_product_level$pct_change_price) - 0.001)
+
+task_3_product_level2 <- task_3_product_level %>%
+  mutate(log_pct_change = log(pct_change_price + min))
+
+View(task_3_product_level2)
+```
+
+
+Write product-level output to CSV
+```{r}
+write.csv(task_3_product_level2, file='../../Data/task_3_product_level.csv', row.names=F)
+```
+
+
+Aggregate weekly revenue data at the store level with max of indicator variables, sum of weekly revenue, and mean of pct_change_price
+```{r}
+task_3 <- task_3_product_level %>% group_by(wm_yr_wk, week_id, store_id) %>% 
+  summarize(Cultural = max(Cultural),
+            Sporting = max(Sporting),
+            National = max(National),
+            Religious = max(Religious),
+            weekly_revenue = sum(weekly_revenue),
+            pct_change_price = mean(pct_change_price))
+
+View(task_3)
+dim(task_3)
+```
+
+
+Add log of pct_change_price to consider as variable
+Calculate and add min due to negative values
+```{r}
+min <- abs(min(task_3$pct_change_price) - 0.001)
+
+task_3_2 <- task_3 %>%
+  mutate(log_pct_change = log(pct_change_price + min))
+
+View(task_3_2)
+```
+
+
+Write output to CSV
+```{r}
+write.csv(task_3_2, file='../../Data/task_3.csv', row.names=F)
+```
+
+
+Clear environment
+```{r}
+rm(list = ls(all.names = TRUE))
+gc()
+```

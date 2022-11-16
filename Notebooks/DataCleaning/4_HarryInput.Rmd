@@ -1,0 +1,212 @@
+```{r}
+revenue.weekly <- read.csv('../../Data/task_3.csv')
+head(revenue.weekly)
+```
+
+We used pacman package the install and load necessary packages.
+
+```{r}
+# install.packages('pacman')
+library(pacman)
+pacman::p_load(data.table, fixest, BatchGetSymbols, ggplot2, lubridate)
+# install.packages("yfR",repos="https://ropensci.r-universe.dev")
+library(yfR)
+```
+
+Download amazon data from 2011-01-29 to 2016-06-19. The source is Yahoo! Finance.
+
+```{r}
+first.date <- '2011-01-29'
+# last.date <- Sys.Date()
+last.date <- '2016-06-19' 
+tickers <- c('AMZN')
+freq.data <- 'daily'
+```
+
+```{r}
+amazon <- yfR::yf_get(tickers = tickers, first_date = first.date, last_date = last.date, freq_data = freq.data, do_cache = FALSE, thresh_bad_data = 0, be_quiet = TRUE)
+dim(amazon)
+head(amazon)
+```
+
+Download Gas price data for three respective states. The csv files are downloaded from the data source with links below and stored in Dropbox. Since the gas prices for state of Wisconsin are not available, we will use the prices of the Midwest instead.
+
+Gas Price Data Source with share link:
+
+Texas
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_STX_DPG&f=W>
+
+<https://www.dropbox.com/s/x7mm86wzffmcmfv/Weekly_Texas.csv?dl=1>
+
+Midwest
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_R20_DPG&f=W>
+
+<https://www.dropbox.com/s/z74yg77k59fhgh2/Weekly_Midwest.csv?dl=1>
+
+California
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_SCA_DPG&f=W>
+
+<https://www.dropbox.com/s/8y7jdwx47att2wk/Weekly_California.csv?dl=1>
+
+US National
+
+<https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMR_PTE_NUS_DPG&f=W>
+
+<https://www.dropbox.com/s/cu17eigmnbtqvfk/Weekly_US.csv?dl=1>
+
+```{r}
+gas.midwest <- read.csv('https://www.dropbox.com/s/z74yg77k59fhgh2/Weekly_Midwest.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_WI'))
+head(gas.midwest)
+```
+
+```{r}
+gas.texas <- read.csv('https://www.dropbox.com/s/x7mm86wzffmcmfv/Weekly_Texas.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_TX'))
+head(gas.texas)
+```
+
+```{r}
+gas.california <- read.csv('https://www.dropbox.com/s/8y7jdwx47att2wk/Weekly_California.csv?dl=1', header = TRUE, skip = 4, col.names = c('week_of', 'price_CA'))
+head(gas.california)
+```
+
+```{r}
+calendar <- read.csv('../../Data/calendar.csv')
+head(calendar)
+```
+For the stock prices, our plan is to use the mean of the adjusted price each week. In our sales dataset, the last Walmart week (11621) has only two days (2016-6-18 and 2016-6-19). They are Sat and Sun with no stock price available. We could use the average prices of that Walmart week as the input. However, the price will be mean price from 2016-6-20 to 2016-6-24. Since knowing future will affect the reliability of our model, we will instead using the price which is before and closest (2016-6-17) to the last Walmart week as the input.
+
+```{r}
+amazon.prices <- subset(amazon, select = c(ref_date, price_adjusted))
+amazon.prices$ref_date <- as.character(amazon.prices$ref_date)
+head(amazon.prices)
+```
+
+```{r}
+amazon.prices <- merge(subset(calendar, select = c('date','wm_yr_wk')), amazon.prices, by.x = 'date', by.y = 'ref_date', all.x = TRUE)
+amazon.prices$price_adjusted[nrow(amazon.prices)] <- amazon.prices$price_adjusted[nrow(amazon.prices)-2]
+tail(amazon.prices,10)
+```
+
+```{r}
+amazon.prices <- subset(amazon.prices, select = -c(date))
+amazon.prices <- na.omit(amazon.prices)
+head(amazon.prices)
+```
+
+```{r}
+amazon.prices <- aggregate(subset(amazon.prices, select = -c(wm_yr_wk)), by = list(wm_yr_wk = amazon.prices$wm_yr_wk), FUN = mean)
+colnames(amazon.prices) <- c('wm_yr_wk','amzn_price')
+head(amazon.prices)
+```
+
+Now move on to gas prices.
+
+```{r}
+gas.prices <- subset(calendar, select = c('date','wm_yr_wk'))
+tail(gas.prices,10)
+```
+
+Convert the format of datetime values and use date to merge weekly gas prices with calendar.
+
+Note that we are using weekly prices. For every week that the price exists, there will be only one row in that week with price available. For the rest of days, the prices will be NA. We then fill NA with 0 and aggregate prices dataframe by week and take the sum of the prices. Since there will be at most one gas price within each week in each of the three columns. The sum will represent the weekly gas prices.
+
+```{r}
+gas.prices$new_date <- strptime(gas.prices$date,'%Y-%m-%d')
+gas.prices$new_date <- format(gas.prices$new_date, '%m/%d/%Y')
+head(gas.prices)
+```
+
+```{r}
+gas.prices <- merge(gas.prices, gas.california, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- merge(gas.prices, gas.midwest, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- merge(gas.prices, gas.texas, by.x = 'new_date', by.y = 'week_of', all.x = TRUE)
+gas.prices <- subset(gas.prices, select = -c(new_date,date))
+gas.prices <- gas.prices[order(gas.prices$wm_yr_wk),]
+gas.prices[is.na(gas.prices)] <- 0
+head(gas.prices)
+```
+
+```{r}
+# ?aggregate
+gas.prices = aggregate(subset(gas.prices, select = -c(wm_yr_wk)), by = list(wm_yr_wk = gas.prices$wm_yr_wk), FUN = sum, na.action(na.pass))
+# aggregate(wm_yr_wk ~ ., data = gas.prices, FUN = sum)
+head(gas.prices)
+
+```
+
+For those rows with gas prices equal to 0, it is due to missing values from the data source. We do our best to estimate those missing values by taking the mean prices of the neighboring weeks (one week before and one week after).
+
+```{r}
+gas.prices$price_CA[gas.prices$price_CA==0] <- NA
+gas.prices$price_WI[gas.prices$price_WI==0] <- NA
+gas.prices$price_TX[gas.prices$price_TX==0] <- NA
+head(gas.prices)
+```
+
+```{r}
+library(zoo)
+gas.prices <- as.data.frame(na.approx(gas.prices))
+gas.prices$wm_yr_wk <- as.integer(gas.prices$wm_yr_wk)
+tail(gas.prices)
+```
+Similar to the stock price situation, the last week's gas prices are missing. We follow the same rule and fill them with prices from previous week.
+
+```{r}
+gas.prices[nrow(gas.prices),2:4] <- gas.prices[nrow(gas.prices)-1,2:4]
+tail(gas.prices)
+```
+
+Now merge the gas price and stock price together for future use.
+
+```{r}
+gas.stock <- merge(gas.prices, amazon.prices, by = 'wm_yr_wk')
+head(gas.stock)
+```
+
+
+
+```{r}
+library(fastDummies)
+```
+
+We create dummy variables for store_id column. There are 10 unique categorical values.
+
+```{r}
+dummy.store <- data.frame(revenue.weekly$store_id)
+colnames(dummy.store)[1] <- 'store_id'
+dummy.store <- dummy_cols(dummy.store)#[2:10]
+head(dummy.store)
+```
+
+```{r}
+revenue.weekly <- cbind(revenue.weekly, dummy.store[,2:11])
+```
+
+```{r}
+revenue.weekly <- merge(revenue.weekly, gas.stock, by = c('wm_yr_wk'), all.x = TRUE)
+```
+
+We assign gas prices of each row according to store location
+
+```{r}
+revenue.weekly$gas_price <- revenue.weekly$price_CA*(revenue.weekly$store_id_CA_1+revenue.weekly$store_id_CA_2+revenue.weekly$store_id_CA_3+revenue.weekly$store_id_CA_4) + revenue.weekly$price_WI*(revenue.weekly$store_id_WI_1+revenue.weekly$store_id_WI_2+revenue.weekly$store_id_WI_3) + revenue.weekly$price_TX*(revenue.weekly$store_id_TX_1+revenue.weekly$store_id_TX_2+revenue.weekly$store_id_TX_3)
+
+head(revenue.weekly)
+```
+
+I kept everything in the dataset. Please note that we should drop one column of store_id dummies before modeling.
+
+Write output to CSV
+```{r}
+write.csv(revenue.weekly, file='../../Data/task_4.csv', row.names=F)
+```
+
+
+Clear environment
+```{r}
+rm(list = ls(all.names = TRUE))
+gc()
+```

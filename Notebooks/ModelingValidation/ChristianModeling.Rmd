@@ -1,0 +1,168 @@
+Pull in data from part 4_2
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+
+if (!require(tidyverse)) install.packages("tidyverse")
+suppressMessages(suppressWarnings(library(tidyverse)))
+
+task42 <- read.csv('../../Data/task_4_2.csv')
+View(head(task42,30))
+#glimpse(task42)
+```
+
+
+make models in below fashion:
+model1: Y ~ X1+X2 + interaction term
+model2: Y ~ logX1 + logX2 + interaction term
+model3: Y ~ logX1 + X2 + interaction term 
+model4: Y ~ X1 + logX2 + interaction term
+where Y: weekly revenue  X1: Price Change  X2: Amazon Price
+
+
+create interaction terms for each model and group x variable columns for each model
+```{r}
+task42 <- task42 %>%
+  mutate(int1 = pct_change_price*amzn_price) %>%
+  mutate(int2 = log_pct_change*log_amzn_price) %>%
+  mutate(int3 = log_pct_change*amzn_price) %>%
+  mutate(int4 = pct_change_price*log_amzn_price)
+
+
+x_1 <- c("pct_change_price", "amzn_price", "int1")
+x_2 <- c("log_pct_change", "log_amzn_price", "int2")
+x_3 <- c("log_pct_change", "amzn_price", "int3")
+x_4 <- c("pct_change_price", "log_amzn_price", "int4")
+```
+
+
+Split for training and validation
+```{r}
+set.seed(8675309)
+smpl.size <- floor(0.7 * nrow(task42))
+train_ind <- sort(sample(nrow(task42), size = smpl.size))
+task42_sub <- task42[train_ind,]
+valid_data <- task42[-train_ind,]
+```
+
+
+
+
+
+
+##model1
+pct_change_price & amzn_price & int1
+```{r}
+model_1 <-task42_sub %>% select(wm_yr_wk,Cultural:weekly_revenue,store_id_CA_1:store_id_WI_2,item_on,one_of(x_1))
+lm1 <- lm(weekly_revenue ~ .,data = model_1)
+summary(lm1)
+plot(lm1)
+r2_1 <- summary(lm1)$adj.r.squared
+```
+
+predict and validate
+```{r}
+valid_data$pred1 <- predict(lm1, newdata = valid_data, type = 'response')
+
+model_1_valid <- 100*mean((valid_data$pred1-valid_data$weekly_revenue)/valid_data$weekly_revenue)
+model_1_valid
+```
+
+check cooks distance - no outliers
+```{r}
+cd <- cooks.distance(lm1)
+which(cd>1) #no results, no outliers
+```
+
+
+
+
+##model2
+log_pct_change & log_amzn_price & int2
+```{r}
+model_2 <-task42_sub %>% select(wm_yr_wk,Cultural:weekly_revenue,store_id_CA_1:store_id_WI_2,item_on,one_of(x_2))
+lm2 <- lm(weekly_revenue ~ .,data = model_2)
+summary(lm2)
+plot(lm2)
+r2_2 <- summary(lm2)$adj.r.squared
+```
+
+check cooks distance -no outliers
+```{r}
+cd <- cooks.distance(lm2)
+which(cd>1) #no results, no outliers
+```
+
+predict and validate
+```{r}
+valid_data$pred2 <- predict(lm2, newdata = valid_data, type = 'response')
+model_2_valid <- 100*mean((valid_data$pred2-valid_data$weekly_revenue)/valid_data$weekly_revenue)
+model_2_valid
+```
+
+
+
+
+
+##model3
+log_pct_change & amzn_price & int3
+```{r}
+model_3 <-task42_sub %>% select(wm_yr_wk,Cultural:weekly_revenue,store_id_CA_1:store_id_WI_2,item_on,one_of(x_3))
+lm3 <- lm(weekly_revenue ~ .,data = model_3)
+summary(lm3)
+plot(lm3)
+r2_3 <- summary(lm3)$adj.r.squared
+```
+
+check cooks distance -no outliers
+```{r}
+cd <- cooks.distance(lm3)
+which(cd>1) #no results, no outliers
+```
+
+predict and validate
+```{r}
+valid_data$pred3 <- predict(lm3, newdata = valid_data, type = 'response')
+model_3_valid <- 100*mean((valid_data$pred3-valid_data$weekly_revenue)/valid_data$weekly_revenue)
+model_3_valid
+```
+
+
+
+
+
+##model4
+pct_change_price & log_amzn_price & int4
+```{r}
+model_4 <-task42_sub %>% select(wm_yr_wk,Cultural:weekly_revenue,store_id_CA_1:store_id_WI_2,item_on,one_of(x_4))
+lm4 <- lm(weekly_revenue ~ .,data = model_4)
+summary(lm4)
+plot(lm4)
+r2_4 <- summary(lm4)$adj.r.squared
+```
+
+predict and validate
+```{r}
+valid_data$pred4 <- predict(lm4, newdata = valid_data, type = 'response')
+model_4_valid <- 100*mean((valid_data$pred4-valid_data$weekly_revenue)/valid_data$weekly_revenue)
+model_4_valid
+```
+
+check cooks distance -no outliers
+```{r}
+cd <- cooks.distance(lm4)
+which(cd>1) #no results, no outliers
+```
+
+
+
+
+## Summary
+create df to output summary of models      THE WINNER IS MODEL 1
+```{r}
+df_summary <- data.frame("Model" = c("1","2","3","4"),
+                         "Type" = c("x1+x2","log(x1)+log(x2)","log(x1)+x2","x1+log(x2)"),
+                         "ADJ_Rs" = c(r2_1,r2_2,r2_3,r2_4),
+                         "Relative Error" = c(model_1_valid,model_2_valid,model_3_valid,model_4_valid))
+df_summary
+```

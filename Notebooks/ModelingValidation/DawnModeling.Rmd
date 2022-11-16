@@ -1,0 +1,184 @@
+
+This is part2 to build and validate models. My task is to build and validate four models:
+logY ~X1+X2 + interaction term
+logY~logX1+X2 + interaction term 
+logY~logX1+logX2 + interaction term
+logY~X1+logX2 + interaction term
+where Y: weekly revenue X1: Amazon Price/Gas  X2: + Price Change
+
+clean RAM read dataset 
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+
+walmart.sale.total <- read.csv("..//..//Data//task_4_2.csv")
+
+# set.seed(10086)
+# samples <- sample(nrow(walmart.sale.total),size = floor(0.7 * nrow(walmart.sale.total)),replace=FALSE)
+# length(samples)
+# walmart.sale <- walmart.sale.total[samples,]
+# walmart.test <- walmart.sale.total[-samples,]
+# nrow(walmart.sale)
+# nrow(walmart.test)
+
+library(dplyr)
+set.seed(10086)
+smpl.size <- floor(0.7 * nrow(walmart.sale.total))
+train_ind <- sample(nrow(walmart.sale.total), size = smpl.size)
+walmart.sale <- walmart.sale.total[train_ind,]
+walmart.test <- walmart.sale.total[-train_ind,]
+```
+model#5: logY ~X1+X2
+```{r}
+
+model.5 <- lm(log_weekly_revenue ~ wm_yr_wk+ store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+pct_change_price+amzn_price+item_on,data=walmart.sale)
+summary(model.5)
+plot(model.5)
+
+
+model.5.1 <- lm(log_weekly_revenue ~  store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+pct_change_price+amzn_price+item_on,data=walmart.sale)
+summary(model.5.1)
+plot(model.5.1)
+```
+
+Model5: Cook's distance remove Outliers
+```{r}
+cook_distance <-cooks.distance(model.5)
+which(cook_distance >1)
+```
+
+model5: validate model 5 with predict weekly revenue, formula: (weekly_revenue_pred - weekly_revenue)/weekly_revenue
+```{r}
+walmart.test <- walmart.test %>% 
+                  mutate(weekly_revenue_pred.5=predict(model.5,newdata=.,type="response")) %>% 
+                  mutate(weekly_revenue_pred.5.1=predict(model.5.1,newdata=.,type="response"))
+model.5.val <- mean((exp(walmart.test$weekly_revenue_pred.5)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.5.val.1 <- mean((exp(walmart.test$weekly_revenue_pred.5.1)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.5.val
+model.5.val.1
+
+```
+
+model 6: logY~logX1+X2 + interaction term
+
+```{r}
+
+model.6 <- lm(log_weekly_revenue ~ wm_yr_wk+ store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+log_pct_change+amzn_price+item_on,data=walmart.sale)
+summary(model.6)
+plot(model.6)
+
+
+model.6.1 <- lm(log_weekly_revenue ~  store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+log_pct_change+amzn_price+item_on,data=walmart.sale)
+summary(model.6.1)
+plot(model.6.1)
+
+
+```
+
+
+Model6: Cook's distance remove Outliers
+```{r}
+cook_distance <-cooks.distance(model.6)
+which(cook_distance >1)
+```
+
+model6: validate model 5 with predict weekly revenue, formula: (weekly_revenue_pred - weekly_revenue)/weekly_revenue
+```{r}
+walmart.test <- walmart.test %>% 
+                  mutate(weekly_revenue_pred.6=predict(model.6,newdata=.,type="response")) %>% 
+                  mutate(weekly_revenue_pred.6.1=predict(model.6.1,newdata=.,type="response"))
+model.6.val <- mean((exp(walmart.test$weekly_revenue_pred.6)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.6.val.1 <- mean((exp(walmart.test$weekly_revenue_pred.6.1)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.6.val
+model.6.val.1
+
+```
+
+
+model 8: logY~logX1+logX2 + interaction term
+
+```{r}
+walmart.sale.7 <-  transform(walmart.sale,interaction.term=log_pct_change*max(Cultural,Sporting,National,Religious))
+
+model.7 <- lm(log_weekly_revenue ~ wm_yr_wk+ store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+log_pct_change+log_amzn_price+item_on,data=walmart.sale)
+summary(model.7)
+plot(model.7)
+
+model.7.1 <- lm(log_weekly_revenue ~  store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+log_pct_change+log_amzn_price+item_on,data=walmart.sale)
+summary(model.7.1)
+plot(model.7.1)
+
+```
+
+
+Model7: Cook's distance remove Outliers
+```{r}
+cook_distance <-cooks.distance(model.7)
+which(cook_distance >1)
+```
+
+model7: validate model with predict weekly revenue, formula: (weekly_revenue_pred - weekly_revenue)/weekly_revenue
+```{r}
+walmart.test <- walmart.test %>% 
+                  mutate(weekly_revenue_pred.7=predict(model.7,newdata=.,type="response")) %>% 
+                  mutate(weekly_revenue_pred.7.1=predict(model.7.1,newdata=.,type="response"))
+model.7.val <- mean((exp(walmart.test$weekly_revenue_pred.7)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.7.val.1 <- mean((exp(walmart.test$weekly_revenue_pred.7.1)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.7.val
+model.7.val.1
+
+```
+
+
+
+
+
+model 7: logY~X1+logX2 
+```{r}
+
+
+model.8 <- lm(log_weekly_revenue ~ wm_yr_wk+ store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+pct_change_price+log_amzn_price+item_on,data=walmart.sale)
+summary(model.8)
+plot(model.8)
+
+model.8.1 <- lm(log_weekly_revenue ~  store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+pct_change_price+log_amzn_price+item_on,data=walmart.sale)
+summary(model.8.1)
+plot(model.8.1)
+
+```
+
+
+Model8: Cook's distance remove Outliers
+```{r}
+cook_distance <-cooks.distance(model.8)
+which(cook_distance >1)
+```
+
+model8: validate model with predict weekly revenue, formula: (weekly_revenue_pred - weekly_revenue)/weekly_revenue
+```{r}
+walmart.test <- walmart.test %>% 
+                  mutate(weekly_revenue_pred.8=predict(model.8,newdata=.,type="response")) %>% 
+                  mutate(weekly_revenue_pred.8.1=predict(model.8.1,newdata=.,type="response"))
+model.8.val <- mean((exp(walmart.test$weekly_revenue_pred.8)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.8.val.1 <- mean((exp(walmart.test$weekly_revenue_pred.8.1)-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+model.8.val
+model.8.val.1
+
+```
+
+```{r}
+model=c("model.5","model.6","model.7","model.8")
+value=c(model.5.val,model.6.val,model.8.val,model.7.val)
+r.square <- c(summary(model.5)$r.squared,summary(model.6)$r.squared,summary(model.8)$r.squared,summary(model.7)$r.squared)
+table=data.frame(Model=model,Value=value,R.square=r.square)
+table
+```
+

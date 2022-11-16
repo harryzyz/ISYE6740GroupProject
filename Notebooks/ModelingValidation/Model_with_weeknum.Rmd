@@ -1,0 +1,55 @@
+clean memory, load library and read datasets
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+library(ggplot2)
+library(dplyr)
+library(car)
+walmart.sale <- read.csv("..\\..\\Data\\task_4_2.csv")
+walmart.eval <- read.csv("..\\..\\Data\\task_5.csv")
+load("..\\..\\Notebooks\\ModelingValidation\\model_evaluation.rda") #model from validation
+nrow(walmart.sale)
+nrow(walmart.eval)
+head(walmart.sale)
+```
+
+I wanted to try the week variable as 1-52 i.e each year has weeks 1 through 52 for variables
+```{r}
+
+df_withweek <- subset(walmart.sale, select = -c(week_id, store_id, store_id_CA_1, price_CA, price_WI, price_TX, log_amzn_price,log_gas_price, log_pct_change)) %>%
+  mutate(week = wm_yr_wk %% 100)%>%
+  select(-wm_yr_wk)
+model_withweek <- lm(weekly_revenue~.-weekly_revenue-log_weekly_revenue, data = df_withweek)
+summary(model_withweek)
+plot(model_withweek)
+```
+VIF with week
+```{r}
+vif(model_withweek)
+```
+
+error with week
+```{r}
+df_withweek <- df_withweek %>% 
+                mutate(pred = predict(model_withweek, newdata = df_withweek, type = 'response')) %>% 
+                mutate(error_perc = abs(pred - weekly_revenue) / weekly_revenue) %>%
+                mutate(pred_revenue = pred)
+cat("sale data error:",mean(df_withweek$error_perc))
+cat("\n")
+
+
+walmart.eval <- walmart.eval %>% 
+                mutate(week = wm_yr_wk %% 100)
+
+walmart.eval <- walmart.eval %>% 
+                mutate(pred2 = predict(model_withweek, newdata = walmart.eval, type = 'response')) %>% 
+                mutate(error_perc2 = abs(pred2 - weekly_revenue) / weekly_revenue) 
+
+cat("eval data error:",mean(walmart.eval$error_perc2))
+```
+error by week using model with week
+```{r}
+walmart.eval %>% 
+  group_by(wm_yr_wk) %>%
+  summarise(weekly_error2 = mean(error_perc2))
+``` 

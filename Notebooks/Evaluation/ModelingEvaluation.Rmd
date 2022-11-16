@@ -1,0 +1,138 @@
+clean memory, load library and read datasets
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+library(ggplot2)
+library(dplyr)
+library(car)
+walmart.sale <- read.csv("..\\..\\Data\\task_4_2.csv")
+walmart.eval <- read.csv("..\\..\\Data\\task_5.csv")
+load("..\\..\\Notebooks\\ModelingValidation\\model_evaluation.rda") #model from validation
+nrow(walmart.sale)
+nrow(walmart.eval)
+head(walmart.sale)
+```
+```{r}
+colnames(walmart.sale)
+```
+
+
+Model weekly revenue ~ amzn_stock + pct_change + item_on + all the other dummy variables
+```{r}
+
+df <- subset(walmart.sale, select = -c(wm_yr_wk,week_id, store_id, store_id_CA_1, price_CA, price_WI, price_TX, log_amzn_price,log_gas_price, log_pct_change))
+#model <- lm(weekly_revenue~.-weekly_revenue-log_weekly_revenue, data = df) #same as model from validation
+summary(model)
+ADJ_R2 <- round(summary(model)$adj.r.squared,3)
+par( mfrow= c(2,2))
+plot(model)
+
+```
+
+
+plot Cook's distance
+```{r}
+plot(cooks.distance(model), main = "Cooks Distance for Influential Obs")
+which(cooks.distance(model)>1)
+```
+
+plot vif of final model: • These high VIF values indicate Multicollinearity problems
+```{r}
+vif(model)
+```
+
+
+calcualte the error percentage of both training and evaluation dataset
+```{r}
+walmart.sale <- walmart.sale %>% 
+                mutate(pred = predict(model, newdata = walmart.sale, type = 'response')) %>% 
+                mutate(error_perc = 100*abs(pred - weekly_revenue) / weekly_revenue) 
+             
+
+walmart.eval <- walmart.eval %>% 
+                mutate(pred = predict(model, newdata = walmart.eval, type = 'response')) %>% 
+                mutate(error_perc = 100*abs(pred - weekly_revenue) / weekly_revenue) 
+
+
+MAPE_train = round(mean(walmart.sale$error_perc),2)
+MAPE_eval = round(mean(walmart.eval$error_perc),2)
+``` 
+
+
+Show the error for each week. The first three weeks of relatively good error compared to large error in the last week hints at abnormal behavior.
+```{r}
+walmart.eval %>% 
+  group_by(wm_yr_wk) %>%
+  summarise(weekly_error = mean(error_perc))
+``` 
+calculate RMSE
+```{r}
+if (!require(ModelMetrics)) install.packages("ModelMetrics")
+library(ModelMetrics)
+RMSE <- trunc(rmse(walmart.eval$weekly_revenue,walmart.eval$pred)) #RMSE gives more weight to large errors, used where large errors undesirable.
+```
+ 
+
+make a table to summarize performance
+```{r}
+sumrows <- c("Adjusted R Squared", "Mean Absolute Percent Error", "RMSE" )
+sumvalues <- c(ADJ_R2,MAPE_eval,RMSE)
+summary <- data.frame(sumrows,sumvalues)
+summary
+```
+
+
+Plot the actual weekly revenue VS the predict weekly revenue per each week
+```{r}
+
+ggplot(walmart.eval, aes(x=wm_yr_wk, color=store_id)) + geom_point(aes(y=weekly_revenue),position = position_dodge2(w=0.3),size=6) + geom_point(aes(y = pred),position = position_dodge2(w=0.4),size=4,shape = 17) +
+  labs(title="Weekly Revenue VS Predict Weekly Revenue", x="wm_yr_wk", y="Walmart weekly revenue")
+
+```
+
+Plot the actual weekly revenue VS the predict weekly revenue per each store
+```{r}
+
+ggplot(walmart.eval, aes(x=store_id, color=as.character(week_id))) + geom_point(aes(y=weekly_revenue),size=5, position = position_dodge2(w=1) ) + geom_point(aes(y = pred), position = position_dodge(w=1),size=5,shape = 17,) +
+  labs(title="Weekly Revenue(circle) VS Predict Weekly Revenue(triangle)", x="Store_ID", y="Walmart weekly revenue")
+
+```
+Plot the error by week for each store
+```{r}
+
+ggplot(walmart.eval, aes(x=wm_yr_wk, y=error_perc,color=store_id)) + geom_point(size=5, position = position_dodge2(w=0.3))  +
+  labs(title="Weekly Predicted Error Percent by Store", x="wm_yr_wk", y="Error Percent")
+
+```
+Plot variables by week to look for abnormal behavior
+```{r}
+par( mfrow= c(2,2) )
+
+plot(walmart.eval$weekly_revenue~walmart.eval$wm_yr_wk,main="weekly_revenue")
+plot(walmart.eval$pct_change_price~walmart.eval$wm_yr_wk,main="pct_change_price")
+plot(walmart.eval$item_on~walmart.eval$wm_yr_wk,main="item_on")
+plot(walmart.eval$amzn_price~walmart.eval$wm_yr_wk,main="amzn_price")
+
+
+b <- ggplot(walmart.eval, aes(x = wm_yr_wk, y = weekly_revenue))
+b + geom_point(aes(color = store_id)) + labs(x="Week ID",y="Weekly Revenue",
+               title="Weekly Revenue by Week ID and Store ID")
+```
+[1] 0.1100827
+[1] 0.4925283
+
+
+Comments:
+
+Model evaluation take steps as:
+- Use select model to predict weekly revenue of the 274 weeks of training data and get a mean error percentage of 11.0%.
+- Use select model to predict weekly revenue of the 4 weeks of testing data and get a mean error percentage of 49.2%. Indicating a dra-matic change in this weekly revenue for all 10 Walmart stores located in three different states.
+- Model performs well on first three weeks of evaluation data with 11% error. The last week of evaluation produces an error of 162%.
+
+To identify big factor causing the large error, four plots containing week versus the four numeric variables, namely weekly revenue, mean price change, items on the shelf and amazon stock price are studied. 
+
+- Per the plot, the revenue in last week 6/19/2016 is the one has most of drop across 10 stores. 
+- Mean price change in this week is very comparable to all the other three weeks. 
+
+
+Since the model performed well in the first three weeks and then missed the last week predicted by an increased %150, this shows there is some abnormal behavior in the data for this week. This could potentially be bad data or an abnormal event that is not captured in a our predictor variables.

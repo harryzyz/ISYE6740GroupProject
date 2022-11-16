@@ -1,0 +1,96 @@
+##summarizing sales for each store/item by week
+```{r}
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(reshape2)))
+suppressWarnings(suppressMessages(library(dplyr)))
+```
+
+
+using calendar to get week_id from wm_yr_wk
+```{r}
+calendar <- read.csv("../../Data/calendar.csv")
+calendar <- calendar[1:1941,c(2,7)]
+# find week_id, the week_id is corresponding with wm_yr_wk
+calendar <- calendar %>%
+  mutate(day = as.numeric(gsub('d_','',d))) %>%
+  mutate(week_id = ceiling(day/7)) 
+
+calendar <- calendar[,c(1,4)] %>%
+  distinct()
+
+#head(calendar,10)
+```
+
+merge week_id from calendar onto price
+```{r}
+price <- read.csv('../../Data/sell_prices.csv')
+price_week <- merge(price,calendar, by.y = "wm_yr_wk")
+price_week <- price_week[,c("wm_yr_wk","week_id","store_id","item_id","sell_price")] %>%
+  arrange(week_id,store_id,item_id)
+
+rm(calendar)
+rm(price)
+view(head(price_week,30))
+```
+
+write CSV for price by week as task 2
+```{r}
+write.csv(price_week,"../../Data/task_2.csv")
+```
+
+## you can stop here and have all the data required to be paired with data from task 1
+
+
+
+
+
+
+
+## below I added weekly number of sales and revenue into the data
+read sales data and remove junk
+```{r}
+sales <- read.csv('../../Data/sales_train_evaluation.csv')
+sales<- sales[,-c(1,3:4,6)]
+#head(sales,10)
+```
+
+melt, reformat day column, add week_id to sales_day data
+```{r}
+sales_day <- melt(sales) %>%
+  rename(day = variable) %>%
+  rename(sales = value) %>%
+  mutate(day = as.numeric(gsub('d_','',day))) %>% #remove "d_" from day column and make format to number
+  mutate(week_id = ceiling(day/7))  #creating the week number
+
+rm(sales)
+#head(sales_day,10)
+```
+
+create weekly sale amounts
+```{r}
+sales_week <- sales_day %>%
+  group_by(item_id, store_id, week_id) %>%
+  summarize(weekly_sale = sum(sales))
+
+rm(sales_day)
+view(head(sales_week,30))
+```
+
+combine price and sales, create revenue
+```{r}
+revenue_week <- merge(price_week,sales_week) %>%
+  mutate(revenue = sell_price * weekly_sale) %>%
+  arrange(store_id,item_id,week_id)
+  
+revenue_week <- revenue_week[,c("wm_yr_wk","week_id","store_id","item_id","sell_price","weekly_sale","revenue")]
+
+view(head(revenue_week,30))
+```
+
+write a CSV of weekly revenue
+```{r}
+rm(price_week)
+rm(sales_week)
+write.csv(revenue_week,"../../Data/task_2_with_sales_and_revenue.csv")
+```
+

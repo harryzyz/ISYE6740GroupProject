@@ -1,0 +1,196 @@
+Clear environment
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+
+Read in data and view first 6 rows
+```{r}
+data <- read.csv('../../Data/task_4_2.csv')
+head(data)
+dim(data)
+```
+
+Create interaction terms for all models
+```{r}
+data <- data %>%
+  mutate(interaction_1 = pct_change_price*amzn_price) %>%
+  mutate(interaction_2 = log_pct_change*log_amzn_price) %>%
+  mutate(interaction_3 = pct_change_price*log_amzn_price) %>%
+  mutate(interaction_4 = log_pct_change*amzn_price)
+```
+
+
+
+Train/test split, set seed to 273
+```{r}
+set.seed(8675309)
+smpl.size <- floor(0.7 * nrow(data))
+train_ind <- sample(nrow(data), size = smpl.size)
+```
+
+## Model 1
+Train linear-linear model where y = revenue, x1 = amazon stock price (amzn_price), x2 = price change (pct_change_price)
+```{r}
+data_mod1 <- subset(data, select = -c(week_id, store_id, log_pct_change, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, log_amzn_price, log_weekly_revenue, interaction_2, interaction_3, interaction_4))
+train_data_mod1 <- data_mod1[train_ind,]
+val_data_mod1 <- data_mod1[-train_ind,]
+mod1 <- lm(weekly_revenue~., data = train_data_mod1)
+summary(mod1)
+r2_1 <- summary(mod1)$adj.r.squared
+```
+Generate model plots - some issues in residuals vs fitted, Q-Q
+```{r}
+plot(mod1)
+```
+
+
+Calculate Cook's Distance for each observation to double check
+```{r}
+cooksD_mod1 <- cooks.distance(mod1)
+```
+
+
+Plot Cook's Distance to see observations that exceed threshold
+```{r}
+n <- nrow(data_mod1)
+plot(cooksD_mod1, main = "Cooks Distance for Influential Obs")
+which(cooksD_mod1 > 2)
+```
+
+
+Predict on validation data - mod1
+```{r}
+val_data_mod1$pred <- predict(mod1, newdata = val_data_mod1, type = 'response')
+
+err1 <- mean((val_data_mod1$pred - val_data_mod1$weekly_revenue)/val_data_mod1$weekly_revenue)
+err1
+```
+
+
+## Model 2
+Train linear-log model where y = revenue, x1 = log amazon stock price (log_amzn_price), x2 = price change (log_pct_change)
+```{r}
+data_mod2 <- subset(data, select = -c(week_id, store_id, pct_change_price, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, amzn_price, log_weekly_revenue, interaction_1, interaction_3, interaction_4))
+train_data_mod2 <- data_mod2[train_ind,]
+val_data_mod2 <- data_mod2[-train_ind,]
+mod2 <- lm(weekly_revenue~., data = train_data_mod2)
+summary(mod2)
+r2_2 <- summary(mod2)$adj.r.squared
+```
+Generate model plots - some issues in residuals vs fitted, Q-Q
+```{r}
+plot(mod2)
+```
+
+
+Calculate Cook's Distance for each observation to double check
+```{r}
+cooksD_mod2 <- cooks.distance(mod2)
+```
+
+
+Plot Cook's Distance to see observations that exceed threshold
+```{r}
+n <- nrow(data_mod2)
+plot(cooksD_mod2, main = "Cooks Distance for Influential Obs")
+which(cooksD_mod2 > 2)
+```
+
+
+Predict on validation data - mod2
+```{r}
+val_data_mod2$pred <- predict(mod2, newdata = val_data_mod2, type = 'response')
+
+err2 <- mean((val_data_mod2$pred - val_data_mod2$weekly_revenue)/val_data_mod2$weekly_revenue)
+err2
+```
+
+
+## Model 3
+Train linear-log model where y = revenue, x1 = log amazon stock price (log_amzn_price), x2 = price change (pct_change_price)
+```{r}
+data_mod3 <- subset(data, select = -c(week_id, store_id, log_pct_change, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, amzn_price, log_weekly_revenue, interaction_1, interaction_2, interaction_4))
+train_data_mod3 <- data_mod3[train_ind,]
+val_data_mod3 <- data_mod3[-train_ind,]
+mod3 <- lm(weekly_revenue~., data = train_data_mod3)
+summary(mod3)
+r2_3 <- summary(mod3)$adj.r.squared
+```
+Generate model plots - some issues in residuals vs fitted, Q-Q
+```{r}
+plot(mod3)
+```
+
+
+Calculate Cook's Distance for each observation to double check
+```{r}
+cooksD_mod3 <- cooks.distance(mod3)
+```
+
+
+Plot Cook's Distance to see observations that exceed threshold
+```{r}
+n <- nrow(data_mod3)
+plot(cooksD_mod3, main = "Cooks Distance for Influential Obs")
+which(cooksD_mod3 > 2)
+```
+
+
+Predict on validation data - mod3
+```{r}
+val_data_mod3$pred <- predict(mod3, newdata = val_data_mod3, type = 'response')
+
+err3 <- mean((val_data_mod3$pred - val_data_mod3$weekly_revenue)/val_data_mod3$weekly_revenue)
+err3
+```
+
+
+## Model 4
+Train linear-log model where y = revenue, x1 = amazon stock price (amzn_price), x2 = log price change (log_pct_change)
+```{r}
+data_mod4 <- subset(data, select = -c(week_id, store_id, pct_change_price, store_id_WI_3, price_CA, price_WI, price_TX, gas_price, log_amzn_price, log_weekly_revenue, interaction_1, interaction_2, interaction_3))
+train_data_mod4 <- data_mod4[train_ind,]
+val_data_mod4 <- data_mod4[-train_ind,]
+mod4 <- lm(weekly_revenue~., data = train_data_mod4)
+summary(mod4)
+r2_4 <- summary(mod4)$adj.r.squared
+```
+Generate model plots - some issues in residuals vs fitted, Q-Q
+```{r}
+plot(mod4)
+```
+
+
+Calculate Cook's Distance for each observation to double check
+```{r}
+cooksD_mod4 <- cooks.distance(mod4)
+```
+
+
+Plot Cook's Distance to see observations that exceed threshold
+```{r}
+n <- nrow(data_mod4)
+plot(cooksD_mod4, main = "Cooks Distance for Influential Obs")
+which(cooksD_mod4 > 2)
+```
+
+
+Predict on validation data - mod4
+```{r}
+val_data_mod4$pred <- predict(mod4, newdata = val_data_mod4, type = 'response')
+
+err4 <- mean((val_data_mod4$pred - val_data_mod4$weekly_revenue)/val_data_mod4$weekly_revenue)
+err4
+```
+
+
+## Summary
+Output model validation metrics as summary
+```{r}
+df_summary <- data.frame("Model" = c("1","2","3","4"),
+                         "ADJ_Rs" = c(r2_1,r2_2,r2_3,r2_4),
+                         "Relative Error" = c(err1,err2,err3,err4))
+df_summary
+```

@@ -1,0 +1,248 @@
+## Modeling Validation and Selection
+
+From data exploration, we have noticed that there is strong positive correlation between wm_yr_wk and item_on. There is strong negative correlation between gas_price and amzn_price. However, correlation is not necessary nor sufficient condition for multicollinearity. [cite] To find out which variable to keep, we perform VIF investigation.
+
+Firstly, we built our initial model with all available independent variables. After computing the VIF for each variable, we found that there is multicollinearity among variables as shown in graph [graph]. In order to prevent multicollinearity, we removed wm_yr_wk and rebuilt the model. The VIF of each variable in the second model is less than 5, shown in graph [graph], meaning that we can use all independent variables in this model at the same time. It is interesting that in our case, one pair of strong correlation lead to multicollinearity (wm_yr_wk vs item_on) and other pair did not (gas_price vs amzn_price).
+
+In order to finer tune the model, gain more linear relationship, and make the variance more normal, we considered using log-linear, linear-log, and log-log models to compare the performance. We focused on the numerical variables: weekly_revenue as output, gas_price, amzn_price, and pct_change_price as input. We created 16 different models based on all permutations between the linear and log forms of those four variables (2^4=16). We built each model with the same training set, test for outliers using Cook's distance (returning no outlier), and continue digging deeper with interaction terms.
+
+We learned that interaction terms are used when one factor has stat significant interaction with other factors to influence the outcome [cite]. In our case, the event may influence pct_change_price due to promotions. So we included the interaction term between the two. We also learned that when one factor may have different effect on other factor's subgroup, the interaction term will be helpful. In our case, there is no clear case that fits this scenario. After adding the interaction terms, we found out that zero out of the four event * pct_change_price terms had statistically significant p-value. Moreover, if we combine them together as one event indicator, the Estimate, Std. Error, t value, and Pr(>|t|) were all NA. We concluded without rigorous proof that it is because there are infinite number of solutions for the OLS in the model due to too many zero values in the event column. Eventually, we decided to abandon interaction terms.
+
+It is worth to mention that we have tried two train validation split methods. For the first methods, we simply randomly split the data into 70/30 parts. For the second methods, we used stratified split to make sure each store receives the same portion of training and testing data. After testing, two methods provided almost the same results. This makes sense in the way that our original data contains equal number of inputs from each store. Thus a genuine random split will provide almost the same random effect as a stratified split according to store_id. At last, we chose the first method for simplicity.
+
+After all models were built, we made predictions for the validation set, computed and recorded the adjusted R square, Mean Absolute Error (MAP), Mean Average Percentage Error (MAPE), and Root Mean Square Error (RMSE) of each model. [table] The mean absolute error for all models are about 2%. It shows that our models are unbiased. Regarding to the MAPE, It is shown that the worst model only under-performed by 3% comparing with the average performance. The best model also only out-performed average by 3%. This fact shows that introducing log model does not significantly improve our model. Thus, we chose the linear-linear model as our best candidate for the reason that it is easy to interpret in the evaluation stage.
+
+To push further, we tried Principal Component Analysis (PCA) to seek possibilities of improvement. The results showed that with 17 independent variables in the model, the proportion of variance is flat. [graph] It takes the top 14 components to explain 90% of the variance. We have tried two different PCA models with 2 and 14 components respectively. In both cases, the error estimates were higher and Adj. R squared were lower than our best candidate. We concluded that PCA will not be helpful in our case.
+
+As a result, the linear-linear model remained as our best candidate. We moved on to the evaluation stage with this model. 
+
+
+
+
+
+Clear environment
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+Load packages
+```{r}
+if (!require(caret)) install.packages("caret")
+library(caret)
+library(dplyr)
+library(car)
+if (!require(FrF2)) install.packages("FrF2")
+library(FrF2)
+```
+
+
+Read in data and view first 6 rows
+```{r}
+df <- read.csv('../../Data/task_4_2.csv')
+head(df)
+dim(df)
+```
+
+
+
+Train test split plan a: randomly assign 70% of rows as training set, 30% of rows as validation set.
+```{r}
+set.seed(6203)
+smpl.size <- floor(0.7 * nrow(df))
+train_ind <- sample(nrow(df), size = smpl.size)
+length(train_ind)
+nrow(df) - length(train_ind)
+```
+
+Train test split plan b. It uses stratified split to make sure each store receives the same portion of training and testing data. After testing, plan a and plan b provides almost the same results. This makes sense in the way that our original data contains equal number of inputs from each store. So a genuine random split will provide almost the same random effect as a stratified split according to store_id. At last, we choose plan a for simplicity.
+```{r}
+set.seed(1)
+train_ind_b <- createDataPartition(df$store_id, p = 0.7, list = FALSE)
+length(train_ind_b)
+nrow(df) - length(train_ind_b)
+```
+
+select columns that are used in linear models:
+
+```{r}
+df <- df %>% 
+  select(-c(store_id, week_id, store_id_CA_1, price_CA, price_WI, price_TX))
+```
+
+```{r}
+colnames(df)
+```
+
+```{r}
+cor(df[,c(1,23)])
+```
+
+```{r}
+cor(df[,c(18,19)])
+```
+
+```{r}
+cor(df[,c(1,7,18,19,23)])
+```
+
+
+Step 1. Build initial model with all independent variables. Compute the VIF of the initial model.
+```{r}
+model_initial <- lm(weekly_revenue~. - log_weekly_revenue, data=df)
+vif(model_initial)
+```
+Observing that multicolinearity exists since there are several variables with VIF > 5, we remove log_amzn_price, log_pct_change, log_gas_price and keep their linear counterparts. We also remove wm_yr_wk and keep item_on.
+
+Rebuild the model and compute the VIF. The new model does not have any issue with multicolinearity, meaning that we can use all independent variables in this model at the same time.
+```{r}
+model_lin <- lm(weekly_revenue~. - log_weekly_revenue - log_amzn_price - log_gas_price - log_pct_change - wm_yr_wk, data=df)
+summary(model_lin)
+vif(model_lin)
+```
+
+
+```{r}
+model_lin_inter <- lm(weekly_revenue~. - log_weekly_revenue - log_amzn_price - log_gas_price - log_pct_change - wm_yr_wk + pct_change_price * Cultural + pct_change_price * Religious + pct_change_price * National + pct_change_price * Sporting, data=df)
+summary(model_lin_inter)
+```
+
+```{r}
+colnames(df)
+```
+
+In order to gain more linearity, we consider 16 different linear-linear, linear-log, log-linear, and log-log models with all combinations of the linear and log version of weekly_revenue, gas_price, amzn_price, and price_change. We will build each model with the same training set, test for outliers using Cook's distance,
+
+Say something about interaction terms.
+
+Then, we will make predictions for the validation set, compute and record the adjusted R square, relative error, and RMSE of each model for the validation data set.
+
+```{r}
+build.model <- function(log_indicators, df){
+  y=log_indicators[1]
+  x1=log_indicators[2]
+  x2=log_indicators[3]
+  x3=log_indicators[4]
+  wk_rev <- c('weekly_revenue', 'log_weekly_revenue')
+  gas_price <- c('gas_price','log_gas_price')
+  amzn_price <- c('amzn_price','log_amzn_price')
+  pct_change <- c('pct_change_price','log_pct_change')
+  model <- lm(as.formula(paste0(wk_rev[y+1],'~.-wm_yr_wk',
+                              '-',wk_rev[-(y+1)],
+                              '-',gas_price[-(x1+1)],
+                              '-',amzn_price[-(x2+1)],
+                              '-',pct_change[-(x3+1)])), 
+              data = df)
+  return(model)
+}
+```
+
+Note: for all four factors, value == 0 means taking the linear form. Value == 1 means taking the log form.
+```{r}
+input.var <- FrF2(16,4, factor.names=list(rev=c("0","1"),gas=c("0","1"),
+     amzn=c("0","1"), price=c("0","1")), seed=6203)
+input.var
+```
+
+
+
+```{r}
+r2_list <- c()
+name_list <- c()
+MAPE_list <- c()
+error_list <- c()
+outlier_list <- c()
+rmse_list <- c()
+vif_list <- c()
+df_test <- df[-train_ind,]
+for (i in 1:16){
+  
+  name <- paste0('model_',i)
+  name_list <- c(name_list,name)
+  
+  model <- build.model(c(as.integer(input.var[i])-1),df[train_ind,])
+  assign(name, model)
+  
+  r2_list <- c(r2_list,summary(model)$adj.r.squared)
+  
+  pred <- predict(model, newdata = df_test, type = 'response')
+  if (input.var[i][1] == 1){
+    pred <- exp(pred)
+  }
+  
+  mape <- mean(abs(pred - df_test$weekly_revenue)/df_test$weekly_revenue) * 100
+  MAPE_list <- c(MAPE_list, mape)
+  
+  error <- mean((pred - df_test$weekly_revenue)/df_test$weekly_revenue)
+  error_list <- c(error_list, error)
+  
+  rmse <- RMSE(pred = pred, obs = df_test$weekly_revenue)
+  rmse_list <- c(rmse_list, rmse)
+  
+  outlier <- sum(cooks.distance(model) > 1)
+  outlier_list <- c(outlier_list, outlier)
+  
+  bad.vif <- sum(vif(model)>5)
+  vif_list <- c(vif_list, bad.vif)
+  
+}
+```
+
+
+There are no outliers for all models according to the computation of Cook's distance.
+```{r}
+outlier_list
+```
+
+Summary of all 16 models.
+```{r}
+df_val=data.frame(Model=name_list, MAE = error_list, MAPE=MAPE_list, RMSE=rmse_list, Adj.R.Square=r2_list, Num.Outlier=outlier_list, Num.Bad.VIF=vif_list)
+df_val
+```
+
+```{r}
+mean(df_val$MAPE)
+mean(df_val$RMSE)
+mean(df_val$Adj.R.Square)
+```
+
+
+It turns out that model 4 provides the smallest relative error and RMSE. Model 6 provides the highest Adj R2 score. 
+```{r}
+which(df_val$MAPE == min(df_val$MAPE))
+which(df_val$RMSE == min(df_val$RMSE))
+which(df_val$Adj.R.Square == max(df_val$Adj.R.Square))
+```
+```{r}
+which(df_val$MAPE == max(df_val$MAPE))
+which(df_val$RMSE == max(df_val$RMSE))
+which(df_val$Adj.R.Square == min(df_val$Adj.R.Square))
+```
+
+
+```{r}
+(max(df_val$MAPE)-mean(df_val$MAPE))/mean(df_val$MAPE)
+(mean(df_val$MAPE)-min(df_val$MAPE))/mean(df_val$MAPE)
+```
+It is shown that the worst model only under-performed by 3% comparing with the average performance. The best model also only out-performed average by 3%. This fact shows that introducing log model will not significantly improve our model. Thus, we chose the linear-linear model as our final model for the reason that it is easy to interpret in the evaluation stage.
+
+
+Pull model 15. The final model is y ~ x1 + x2 + x3.
+```{r}
+input.var[15]
+```
+
+```{r}
+summary(model_14)
+```
+
+```{r}
+vif(model_14)
+```
+
+rebuild model 15 with whole dataset. Save the model and pass it to evaluation stage.
+```{r}
+model <- model_lin
+save(model, file = 'model_evaluation.rda')
+```
+

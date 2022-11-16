@@ -1,0 +1,98 @@
+clean environment space
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+```
+
+intall and loading library
+```{r}
+if (!require(MASS)) install.packages("MASS")
+if (!require(reshape2)) install.packages("reshape2")
+if (!require(reshape)) install.packages("reshape")
+if (!require(dplyr)) install.packages("dplyr")
+library(MASS) 
+library(reshape2) 
+library(reshape) 
+library(dplyr)
+```
+
+prepare calendar datafile
+```{r}
+calendar <- read.csv("../../Data/calendar.csv")
+calendar <- calendar[1:1941,c(2,7:11)]
+head(calendar)
+dim(calendar)
+```
+
+find week_id, the week_id is coresponding with wm_yr_wk
+```{r}
+calendar$d_id <- as.numeric(regmatches(calendar$d,regexpr("[[:digit:]]+",calendar$d)))
+calendar$week_id <- ceiling(calendar$d_id / 7) 
+```
+
+create dummy variables for events
+```{r}
+calendar$Sporting <- ifelse(calendar$event_type_1 == "Sporting" | calendar$event_type_2 == "Sporting", 1,0)
+calendar$Cultural <- ifelse(calendar$event_type_1 == "Cultural" | calendar$event_type_2 == "Cultural", 1,0)
+calendar$Religious <- ifelse(calendar$event_type_1 == "Religious" | calendar$event_type_2 == "Religious", 1,0)
+calendar$National <- ifelse(calendar$event_type_1 == "National" | calendar$event_type_2 == "National", 1,0)
+```
+
+group the weekly data
+```{r}
+calendar.GB <- calendar %>% group_by(wm_yr_wk,week_id) %>% summarise(Cultural=max(Cultural),Sporting=max(Sporting),Religious=max(Religious),National=max(National))
+head(calendar.GB)
+dim(calendar.GB)
+```
+
+prepare the sales datafile
+```{r}
+sales <- read.csv("../../Data/sales_train_evaluation.csv")
+sales <- sales[,c(2,5,7:1947)]
+head(sales)
+dim(sales)
+```
+
+melt to transpose day as rows instead of column
+```{r}
+sales.melt <- melt(sales,id=c("item_id","store_id"))
+head(sales.melt)
+dim(sales.melt)
+```
+
+find week_id, the week_id is coresponding with wm_yr_wk 
+```{r}
+sales.melt$d_id <- as.numeric(regmatches(sales.melt$variable,regexpr("[[:digit:]]+",sales.melt$variable)))
+sales.melt$week_id <- ceiling(sales.melt$d_id / 7) 
+```
+
+leave only meaningful columns 
+```{r}
+sales.melt <- sales.melt[,c(1,2,4,6)]
+```
+
+group sales get weekly sale
+```{r}
+sales.GB <- sales.melt %>% group_by(item_id,store_id,week_id) %>% summarise(weekly_sale=sum(value))
+head(sales.GB)
+dim(sales.GB)
+```
+
+merge both sales and calender by week_id
+```{r}
+sales.combine <- merge(x = calendar.GB, y = sales.GB, all.y = TRUE)
+sales.combine <- sales.combine[,c("wm_yr_wk","week_id","store_id","item_id","Cultural","Sporting","Religious","National","weekly_sale")]
+head(sales.combine)
+dim(sales.combine)
+```
+clean datasets to speed next task
+```{r}
+rm(list= setdiff(ls(),"sales.combine"))
+gc(reset=TRUE)
+```
+output dataframe as task 1 and clean RAM
+```{r}
+write.csv(sales.combine,"../../Data/task_1.csv")
+rm(list=ls())
+gc(reset=TRUE)
+```

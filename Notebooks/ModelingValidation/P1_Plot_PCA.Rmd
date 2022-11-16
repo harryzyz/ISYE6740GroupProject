@@ -1,0 +1,231 @@
+
+This is to create log_Y and log_X variables, please copy to the top of your part 2 modeling coding
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+
+if (!require(dplyr)) install.packages("dplyr")
+library(dplyr)
+
+walmart.sale <- read.csv("../../Data//task_4.csv")
+```
+
+```{r}
+price <- read.csv('../../Data/sell_prices.csv')
+head(price)
+dim(price)
+```
+
+```{r}
+on_shelf <- price %>% 
+  mutate(on_shelf = ifelse(sell_price, 1, 0)) %>% 
+  group_by(wm_yr_wk, store_id) %>% 
+  summarise(item_on = sum(on_shelf))
+
+head(on_shelf)
+```
+
+
+```{r}
+walmart.sale <- transform(walmart.sale,log_amzn_price=log(amzn_price),log_weekly_revenue=log(weekly_revenue),log_gas_price = log(gas_price))
+
+walmart.sale <- merge(walmart.sale, on_shelf, by = c('wm_yr_wk', 'store_id'))
+
+walmart.sale.1 <- walmart.sale %>% 
+                  filter(week_id %in% c(1:274))
+walmart.sale.2 <- walmart.sale %>% 
+                  filter(week_id %in% c(275:278))
+
+write.csv(walmart.sale.1,"../../Data/task_4_2.csv", row.names = FALSE)
+write.csv(walmart.sale.2,"../../Data/task_5.csv", row.names = FALSE)
+
+
+```
+
+read the dataframe
+```{r}
+if (!require(ggplot2)) install.packages("ggplot2")
+library(ggplot2)
+
+
+head(walmart.sale)
+
+```
+
+scatter plot: Amazon stock price VS Walmart weekly revenue
+```{r}
+ggplot(walmart.sale, aes(x=amzn_price, y=weekly_revenue, color=store_id)) + geom_point() +
+  labs(title="Amazon stock price VS Walmart weekly revenue", x="Amazon stock price", y="Walmart weekly revenue")+
+  scale_colour_hue(l=50) + # Use a slightly darker palette than normal
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+```
+
+scatter plot: local gas price VS weekly revenue
+```{r}
+ggplot(walmart.sale, aes(x=gas_price, y=weekly_revenue,color=store_id)) + geom_point() +
+  labs(title="Local Gas price VS Walmart weekly revenue", x="Local Gas Price", y="Walmart Weekly Revenue")+
+  scale_colour_hue(l=30) + 
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+```
+
+scatter plot: mean item price change VS weekly revenue
+```{r}
+ggplot(walmart.sale, aes(x=pct_change_price, y=weekly_revenue)) + geom_point() +
+  labs(title="Mean Store Item Price Change VS Walmart Weekly Revenue", x="Mean Store Item Price Change", y="Walmart Weekly Revenue")+
+  scale_colour_hue(l=30) + 
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+
+```
+
+scatter plot: mean log item price change VS weekly revenue
+```{r}
+ggplot(walmart.sale, aes(x=log_pct_change, y=weekly_revenue)) + geom_point() +
+  labs(title="Mean Log Store Item Price Change VS Walmart Weekly Revenue", x="Mean Log Store Item Price Change", y="Walmart Weekly Revenue")+
+  scale_colour_hue(l=30) + 
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+
+```
+```{r}
+ggplot(walmart.sale, aes(x=week_id, y=weekly_revenue,color=store_id)) + geom_point() +
+  labs(title="Walmart Weekly Revenue 2011-2016", x="Week 1 - Week 278", y="Walmart Weekly Revenue")+
+  scale_colour_hue(l=30) + 
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+```
+
+```{r}
+ggplot(walmart.sale, aes(x=item_on, y=weekly_revenue,color=store_id)) + geom_point() +
+  labs(title="Item On VS Walmart Weekly Revenue 2011-2016", x="Distinct Number of Items for Sale", y="Walmart Weekly Revenue")+
+  scale_colour_hue(l=30) + 
+  geom_smooth(method=lm,   # Add linear regression lines
+              se=FALSE,    # Don't add shaded confidence region
+              fullrange=TRUE) # Extend regression lines
+```
+
+Initial model and plotting
+```{r}
+rm(list=ls())
+gc(reset=TRUE)
+library(dplyr)
+
+walmart.sale.total <- read.csv("../../Data/task_4_2.csv")
+
+set.seed(6203)
+samples <- sample(nrow(walmart.sale.total),size = floor(0.7 * nrow(walmart.sale.total)),replace=FALSE)
+length(samples)
+walmart.sale <- walmart.sale.total[samples,]
+walmart.test <- walmart.sale.total[-samples,]
+
+model.1 <- lm(weekly_revenue ~  store_id_CA_1+store_id_CA_2+store_id_CA_3+store_id_CA_4+store_id_TX_1+store_id_TX_2+store_id_TX_3+store_id_WI_1+store_id_WI_2+Cultural+Sporting+National+Religious+log_pct_change+amzn_price+item_on,data=walmart.sale)
+plot(model.1)
+summary(model.1)
+
+walmart.test <- walmart.test %>% 
+                  mutate(weekly_revenue_pred.1=predict(model.1,newdata=.,type="response"))  
+      
+model.1.val <- mean((walmart.test$weekly_revenue_pred.1-walmart.test$weekly_revenue)/walmart.test$weekly_revenue)
+
+
+
+model.1.val
+
+
+```
+
+Cook distance >1 which get 
+
+
+str(walmart.sale.2)
+
+
+
+```{r}
+cook_distance <-cooks.distance(model.1)
+
+which(cook_distance >1)
+
+
+```
+calculate correlation:
+youtube link: https://www.youtube.com/watch?v=8xpYrPqTBxs
+```{r}
+
+library(car)
+
+cor_walmart <- cor(walmart.sale[,c(9:10,24,25,28)])
+View(cor_walmart)
+
+write.csv(cor_walmart,"../../Data/CorrelationTable.csv")
+```
+
+
+calculate PCA
+youtube link: https://www.youtube.com/watch?v=xKl4LJAXnEA
+
+```{r}
+pca <- prcomp(t(walmart.sale[,c(9,24,25,28)]),scale=TRUE)
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100,1)
+table <- data.frame(pca=pca$x,pca_per=pca.var.per)
+barplot(pca.var.per,main="Screen Plot",xlab="Principle Component",ylab="Percent Variation")
+View(table)
+summary(pca)
+```
+
+```{r}
+head(walmart.sale)
+```
+
+
+```{r}
+pca2 <- prcomp(walmart.sale[,c(1, 3:7,9:28)],scale=TRUE)
+summary(pca2)
+plot(pca2, type='l')
+```
+
+```{r}
+pca.var <- pca2$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100,1)
+barplot(pca.var.per,main="Screen Plot",xlab="Principle Component",ylab="Percent Variation")
+```
+
+```{r}
+df_pca <- as.data.frame(cbind(pca2$x[,1:14], walmart.sale[,8]))
+head(df_pca)
+```
+
+```{r}
+model_pca <- lm(V15~., data=df_pca)
+summary(model_pca)
+```
+
+```{r}
+beta <- model_pca$coefficients
+alpha <- pca2$rotation[,1:14] %*% beta[2:15]
+alpha0 <- alpha/sapply(walmart.sale[,c(1, 3:7,9:28)], sd)
+beta0 <- beta[1] - sum(alpha*sapply(walmart.sale[,c(1, 3:7,9:28)], mean)/sapply(walmart.sale[,c(1, 3:7,9:28)],sd))
+```
+
+```{r}
+alpha0
+beta0
+pred <- as.matrix(walmart.sale[,c(1, 3:7,9:28)]) %*% alpha0 + beta0
+length(pred)
+```
+
+```{r}
+SSre <- sum((pred - walmart.sale$weekly_revenue)^2)
+SSto <- sum((walmart.sale$weekly_revenue-mean(walmart.sale$weekly_revenue))^2)
+R2 <- 1 - SSre/SSto
+R2
+```
+
